@@ -2,10 +2,6 @@
 Utilizing the anatomical fiducals framework to identify other salient brain regions and automatic localization of anatomical fiducials using neural networks
 
 
-# Preprocessing raw T1w images
-
-freesurfer recon-all [1-5]
-
 # Processing data for training 
 
 Convert3D
@@ -19,7 +15,7 @@ Convert3D:
 ## Structural T1w imaging 
 
 Convert3D: 
-1) brainmask.nii (freesurfer output) -> 3D patches sampled at x voxels 
+1) brainmask.nii -> 3D patches sampled at x voxels 
 2) matching of distance maps and anatomical imaging patches is crucial for proper training 
 
 
