@@ -1,0 +1,35 @@
+# Markups fiducial file version = 4.11
+# CoordinateSystem = RAS
+# columns = id,x,y,z,ow,ox,oy,oz,vis,sel,lock,label,desc,associatedNodeID
+1,afid1_x,afid1_y,afid1_z,0,0,0,1,1,1,1,1,AC,vtkMRMLScalarVolumeNode1
+2,afid2_x,afid2_y,afid2_z,0,0,0,1,1,1,1,2,PC,vtkMRMLScalarVolumeNode1
+3,afid3_x,afid3_y,afid3_z,0,0,0,1,1,1,1,3,infracollicular sulcus,vtkMRMLScalarVolumeNode1
+4,afid4_x,afid4_y,afid4_z,0,0,0,1,1,1,1,4,PMJ,vtkMRMLScalarVolumeNode1
+5,afid5_x,afid5_y,afid5_z,0,0,0,1,1,1,1,5,superior interpeduncular fossa,vtkMRMLScalarVolumeNode1
+6,afid6_x,afid6_y,afid6_z,0,0,0,1,1,1,1,6,R superior LMS,vtkMRMLScalarVolumeNode1
+7,afid7_x,afid7_y,afid7_z,0,0,0,1,1,1,1,7,L superior LMS,vtkMRMLScalarVolumeNode1
+8,afid8_x,afid8_y,afid8_z,0,0,0,1,1,1,1,8,R inferior LMS,vtkMRMLScalarVolumeNode1
+9,afid9_x,afid9_y,afid9_z,0,0,0,1,1,1,1,9,L inferior LMS,vtkMRMLScalarVolumeNode1
+10,afid10_x,afid10_y,afid10_z,0,0,0,1,1,1,1,10,Culmen,vtkMRMLScalarVolumeNode1
+11,afid11_x,afid11_y,afid11_z,0,0,0,1,1,1,1,11,Intermammillary sulcus,vtkMRMLScalarVolumeNode1
+12,afid12_x,afid12_y,afid12_z,0,0,0,1,1,1,1,12,R MB,vtkMRMLScalarVolumeNode1
+13,afid13_x,afid13_y,afid13_z,0,0,0,1,1,1,1,13,L MB,vtkMRMLScalarVolumeNode1
+14,afid14_x,afid14_y,afid14_z,0,0,0,1,1,1,1,14,pineal gland,vtkMRMLScalarVolumeNode1
+15,afid15_x,afid15_y,afid15_z,0,0,0,1,1,1,1,15,R LV at AC,vtkMRMLScalarVolumeNode1
+16,afid16_x,afid16_y,afid16_z,0,0,0,1,1,1,1,16,L LV at AC,vtkMRMLScalarVolumeNode1
+17,afid17_x,afid17_y,afid17_z,0,0,0,1,1,1,1,17,R LV at PC,vtkMRMLScalarVolumeNode1
+18,afid18_x,afid18_y,afid18_z,0,0,0,1,1,1,1,18,L LV at PC,vtkMRMLScalarVolumeNode1
+19,afid19_x,afid19_y,afid19_z,0,0,0,1,1,1,1,19,Genu of CC,vtkMRMLScalarVolumeNode1
+20,afid20_x,afid20_y,afid20_z,0,0,0,1,1,1,1,20,Splenium,vtkMRMLScalarVolumeNode1
+21,afid21_x,afid21_y,afid21_z,0,0,0,1,1,1,1,21,R AL temporal horn,vtkMRMLScalarVolumeNode1
+22,afid22_x,afid22_y,afid22_z,0,0,0,1,1,1,1,22,L AL temporal horn,vtkMRMLScalarVolumeNode1
+23,afid23_x,afid23_y,afid23_z,0,0,0,1,1,1,1,23,R superior AM temporal horn,vtkMRMLScalarVolumeNode1
+24,afid24_x,afid24_y,afid24_z,0,0,0,1,1,1,1,24,L superior AM temporal horn,vtkMRMLScalarVolumeNode1
+25,afid25_x,afid25_y,afid25_z,0,0,0,1,1,1,1,25,R inferior AM temporal horn,vtkMRMLScalarVolumeNode1
+26,afid26_x,afid26_y,afid26_z,0,0,0,1,1,1,1,26,L inferior AM temporal horn,vtkMRMLScalarVolumeNode1
+27,afid27_x,afid27_y,afid27_z,0,0,0,1,1,1,1,27,R indusium griseum origin,vtkMRMLScalarVolumeNode1
+28,afid28_x,afid28_y,afid28_z,0,0,0,1,1,1,1,28,L indusium griseum origin,vtkMRMLScalarVolumeNode1
+29,afid29_x,afid29_y,afid29_z,0,0,0,1,1,1,1,29,R ventral occipital horn,vtkMRMLScalarVolumeNode1
+30,afid30_x,afid30_y,afid30_z,0,0,0,1,1,1,1,30,L ventral occipital horn,vtkMRMLScalarVolumeNode1
+31,afid31_x,afid31_y,afid31_z,0,0,0,1,1,1,1,31,R olfactory sulcal fundus,vtkMRMLScalarVolumeNode1
+32,afid32_x,afid32_y,afid32_z,0,0,0,1,1,1,1,32,L olfactory sulcal fundus,vtkMRMLScalarVolumeNode1
