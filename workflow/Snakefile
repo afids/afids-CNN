@@ -1,0 +1,139 @@
+# ---- begin snakebids boilerplate ----------------------------------------------
+
+from snakebids import bids, generate_inputs, get_wildcard_constraints
+
+
+configfile: workflow.source_path("../config/snakebids.yml")
+
+
+# Get input wildcards
+inputs_raw = generate_inputs(
+    bids_dir=config["bids_dir"],
+    pybids_inputs=config["pybids_inputs_raw"],
+    pybids_database_dir=config.get("pybids_db_dir"),
+    pybids_reset_database=config.get("pybids_db_reset"),
+    derivatives=config.get("derivatives", None),
+    participant_label=config.get("participant_label", None),
+    exclude_participant_label=config.get("exclude_participant_label", None),
+)
+inputs_afids = generate_inputs(
+    bids_dir=config["bids_dir"],
+    pybids_inputs=config["pybids_inputs_afids"],
+    pybids_database_dir=config.get("pybids_db_dir"),
+    pybids_reset_database=config.get("pybids_db_reset"),
+    derivatives=config.get("derivatives", None),
+    participant_label=config.get("participant_label", None),
+    exclude_participant_label=config.get("exclude_participant_label", None),
+)
+
+
+# this adds constraints to the bids naming
+wildcard_constraints:
+    **get_wildcard_constraints(config["pybids_inputs"]),
+
+
+# ---- end snakebids boilerplate ------------------------------------------------
+
+
+rule extract_afid:
+    input:
+        fcsv=inputs_fcsv["fcsv"].path,
+    output:
+        txt=bids(
+            root=str(Path(config["out_dir"])) / "c3d",
+            suffix="{afid}.txt",
+            **inputs["T1w"].wildcards
+        ),
+    log:
+        bids(
+            root="logs",
+            suffix="landmark.log",
+            afid="{afid}",
+            **inputs["T1w"].wildcards
+        ),
+    script:
+        './scripts/extract_afids.py"'
+
+
+rule gen_sphere:
+    input:
+        t1w=inputs_raw["T1w"].path,
+        txt=rules.extract_afid.output.txt,
+    output:
+        sphere=bids(
+            root=str(Path(config["out_dir"]) / "c3d"),
+            suffix="{afid}.nii.gz",
+            **inputs["T1w"].wildcards
+        ),
+    shell:
+        "c3d {input.t1w} -scale 0 -landmarks-to-spheres {input.txt} 1 -o {output.sphere}"
+
+
+rule gen_prob:
+    input:
+        t1w=inputs_raw["T1w"].path,
+    output:
+        prob=bids(
+            root=str(Path(config["out_dir"]) / "c3d"),
+            suffix="{afid}_prob.nii.gz",
+            **inputs["T1w"].wildcards
+        ),
+    shell:
+        "c3d {input.t1w} -sdt -o {output.prob}"
+
+
+rule gen_norm:
+    input:
+        prob=rules.gen_prob.output.prob,
+    output:
+        norm=bids(
+            root=str(Path(config["out_dir"]) / "c3d"),
+            suffix="{afid}_prob_norm_-{k}.nii.gz",
+            **inputs["T1w"].wildcards
+        ),
+    shell:
+        "c3d {input.prob} -scale {k} -exp -o {output.norm}"
+
+
+rule gen_mask:
+    input:
+        prob=rules.gen_prob.output.prob,
+    output:
+        bin=bids(
+            root=str(Path(config["out_dir"]) / "c3d"),
+            suffix="{afid}_bin.nii.gz",
+            **inputs["T1w"].wildcards
+        ),
+    shell:
+        "c3d {input.prob} -threshold 0 10 1 0 -o {output.bin}"
+
+
+rule gen_patches:
+    input:
+        t1w=inputs_raw["T1w"].path,
+        prob=rules.gen_prob.output.prob,
+        mask=rules.gen_mask.output.bin,
+    output:
+        patch=bids(
+            root=str(Path(config["out_dir"]) / "c3d"),
+            suffix="patch_{afid}_31_afids_all.dat.nii.gz",
+            **inputs["T1w"].wildcards
+        ),
+    params:
+        num_augment=config["num_augment"],
+        angle_stdev=config["angle_stdev"],
+        radius_arg=config["radius_arg"],
+        frequency=config["frequency"],
+    shell:
+        "c3d {input.t1w} {input.prob} {input.mask} "
+        "-xpa {params.num_augment} {params.angle_stdev} "
+        "-xp {output.patch} {params.radius_arg} {params.frequency}"
+
+
+rule all:
+    input:
+        inputs["T1w"].expand(
+            rules.gen_patches.output.patch,
+            afid=range(32),
+        ),
+    default_target: True

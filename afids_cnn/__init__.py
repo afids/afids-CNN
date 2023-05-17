@@ -1,0 +1,1 @@
+"""AFIDs CNN scripts."""
