@@ -130,10 +130,21 @@ rule gen_patches:
         "-xp {output.patch} {params.radius_arg} {params.frequency}"
 
 
+rule cat_patches:
+    input:
+        patch=inputs_raw["T1w"].expand(rules.gen_patches.output.patch, allow_missing=True)
+    output:
+        combined_patch=bids(
+            root=str(Path(config["out_dir"]) / "c3d"),
+            suffix="all_patches_{afid}_train_all.dat"
+    shell:
+        "cat {input.patch} > {output.combined_patch}"
+
+
 rule all:
     input:
-        inputs["T1w"].expand(
-            rules.gen_patches.output.patch,
+        expand(
+            rules.cat_patches.output.combined_patch,
             afid=range(32),
         ),
     default_target: True
