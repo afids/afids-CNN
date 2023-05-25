@@ -3735,6 +3735,20 @@ tensorflow-gpu = ["tensorflow-gpu (>=2.12.0,<2.13.0)"]
 tensorflow-rocm = ["tensorflow-rocm (>=2.12.0,<2.13.0)"]
 
 [[package]]
+name = "tensorrt"
+version = "8.6.1"
+description = "A high performance deep learning inference library"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "tensorrt-8.6.1.tar.gz", hash = "sha256:865c8c18d7ea5de4661df276156a3bdb8c4ff5499b1a00844e9d7291ec60fb67"},
+]
+
+[package.extras]
+numpy = ["numpy"]
+
+[[package]]
 name = "termcolor"
 version = "2.3.0"
 description = "ANSI color formatting for output in terminal"
@@ -4197,4 +4211,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "24a4b4d3c5bb62c0f69f07a821bc53cfd958153326b625b9da1ff14ef51d6041"
+content-hash = "911d1e28ae500cdb1acf44159d458a125b32b419c9997294bab4121e7b78c3dc"
