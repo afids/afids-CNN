@@ -74,6 +74,10 @@ parse_args:
 
  # custom command-line parameters can then be added, these will get added to the config
 
+  --afids_dir:
+    help: 'Path to a BIDS dataset with AFIDs placements corresponding to bids_dir.'
+    required: True
+
 #--- workflow specific configuration -- below is just an example:
 num_augment: 1
 angle_stdev: 30
@@ -81,4 +85,6 @@ radius_arg: 31x31x31
 frequency: 1000
 num_channels: 2
 dims: [63, 63, 63]
-afids_dir: /cifs/khan/users/tkuehn/data/afids-regRF-data/afids_mni
+
+containers:
+  c3d: docker://khanlab/neuroglia-core:v1.5
