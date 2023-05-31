@@ -22,7 +22,7 @@ def load_fcsv(fcsv_path: PathLike[str] | str) -> pd.DataFrame:
 # utils to factor out
 def get_fid(fcsv_df: pd.DataFrame, fid_num: int) -> NDArray:
     """Extract specific fiducial's spatial coordinates."""
-    return fcsv_df.loc[fid_num, "x":"z"].to_numpy(dtype="single")
+    return fcsv_df.loc[fid_num, ["x", "y", "z"]].to_numpy(dtype="single", copy=True)
 
 
 def fid_voxel2world(fid_voxel: NDArray, nii_affine: NDArray) -> NDArray:
@@ -60,7 +60,7 @@ def fid_world2voxel(
 
 
 def min_max_normalize(img: NDArray) -> NDArray:
-    return (img - img.min()) / (img.max() - img)
+    return (img - img.min()) / (img.max() - img.min())
 
 
 def gen_patch_slices(centre: NDArray, radius: int) -> tuple[slice, slice, slice]:
@@ -104,7 +104,7 @@ def process_distances(
         for idx, key in enumerate(["x", "y", "z"])
     }
     return np.array(
-        [sum(centroids[key]) / len(centroids[key])] for key in ["x", "y", "z"]
+        [sum(centroids[key]) / len(centroids[key]) for key in ["x", "y", "z"]],
     )
 
 
@@ -167,10 +167,10 @@ def main() -> None:
         Path(__file__).parent
         / "resources"
         / "tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz",
-        args.radius,
-        args.fid_num,
-        args.size,
-        args.padding,
+        int(args.radius),
+        int(args.fid_num),
+        int(args.size),
+        int(args.padding),
     )
     with Path(args.out_path).open("w") as out_file:
         json.dump(list(fid_world), out_file)
