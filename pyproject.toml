@@ -25,7 +25,9 @@ snakefmt = "^0.8.4"
 notebook = "^6.5.4"
 
 [tool.poetry.scripts]
-auto_afids_cnn = 'afids_cnn.apply:main'
+auto_afids_cnn_apply = 'afids_cnn.apply:main'
+auto_afids_cnn_train = 'afids_cnn.train:main'
+auto_afids_cnn_train_bids = 'afids_cnn.train_workflow.run:main'
 
 [tool.ruff]
 select = ["ALL"]
