@@ -65,7 +65,8 @@ rule gen_sphere:
             suffix="afid-{afid}.nii.gz",
             **inputs_raw["T1w"].wildcards
         ),
-    container: config["containers"]["c3d"]
+    container:
+        config["containers"]["c3d"]
     shell:
         "c3d {input.t1w} -scale 0 -landmarks-to-spheres {input.txt} 1 -o {output.sphere}"
 
@@ -79,7 +80,8 @@ rule gen_prob:
             suffix="afid-{afid}_prob.nii.gz",
             **inputs_raw["T1w"].wildcards
         ),
-    container: config["containers"]["c3d"]
+    container:
+        config["containers"]["c3d"]
     shell:
         "c3d {input.t1w} -sdt -o {output.prob}"
 
@@ -93,7 +95,8 @@ rule gen_norm:
             suffix="afid-{afid}_prob_norm_-{k}.nii.gz",
             **inputs_raw["T1w"].wildcards
         ),
-    container: config["containers"]["c3d"]
+    container:
+        config["containers"]["c3d"]
     shell:
         "c3d {input.prob} -scale {k} -exp -o {output.norm}"
 
@@ -107,7 +110,8 @@ rule gen_mask:
             suffix="afid-{afid}_bin.nii.gz",
             **inputs_raw["T1w"].wildcards
         ),
-    container: config["containers"]["c3d"]
+    container:
+        config["containers"]["c3d"]
     shell:
         "c3d {input.prob} -threshold 0 10 1 0 -o {output.bin}"
 
@@ -128,7 +132,8 @@ rule gen_patches:
         angle_stdev=config["angle_stdev"],
         radius_arg=config["radius_arg"],
         frequency=config["frequency"],
-    container: config["containers"]["c3d"]
+    container:
+        config["containers"]["c3d"]
     shell:
         "c3d {input.t1w} {input.prob} {input.mask} "
         "-xpa {params.num_augment} {params.angle_stdev} "
@@ -171,8 +176,20 @@ rule train_model:
 
 rule all:
     input:
-        expand(
+        models=expand(
             rules.train_model.output.model,
-            afid=[1],#range(32),
+            afid=range(32),
         ),
+    output:
+        combined_model=bids(
+            root=str(Path(config["output_dir"]) / "afids-cnn-model"),
+            suffix="model-combined.afidsmodel",
+        ),
+    params:
+        radius=config["radius"],
+    resources:
+        script=str(Path(workflow.basedir) / "scripts" / "assemble_models.py"),
     default_target: True
+    shell:
+        "python3 {resources.script} {input.models} {params.radius} "
+        "{output.combined_model}"

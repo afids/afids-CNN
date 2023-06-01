@@ -82,6 +82,7 @@ parse_args:
 num_augment: 1
 angle_stdev: 30
 radius_arg: 31x31x31
+radius: 31
 frequency: 1000
 num_channels: 2
 dims: [63, 63, 63]
