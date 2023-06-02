@@ -122,22 +122,22 @@ rule gen_patches:
         prob=rules.gen_prob.output.prob,
         mask=rules.gen_mask.output.bin,
     output:
-        patch=bids(
-            root=str(Path(config["output_dir"]) / "c3d"),
-            suffix="patch_afid-{afid}_31_afids_all.dat",
-            **inputs_raw["T1w"].wildcards
+        patch=temp(
+            bids(
+                root=str(Path(config["output_dir"]) / "c3d"),
+                desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
+                suffix="afid-{afid}_patch.dat",
+                **inputs_raw["T1w"].wildcards
+            )
         ),
     params:
-        num_augment=config["num_augment"],
-        angle_stdev=config["angle_stdev"],
-        radius_arg=config["radius_arg"],
-        frequency=config["frequency"],
+        radius_arg=lambda wildcards: "x".join([wildcards["radius"] for _ in range(3)]),
     container:
         config["containers"]["c3d"]
     shell:
         "c3d {input.t1w} {input.prob} {input.mask} "
-        "-xpa {params.num_augment} {params.angle_stdev} "
-        "-xp {output.patch} {params.radius_arg} {params.frequency}"
+        "-xpa {wildcards.num_augment} {wildcards.angle_stdev} "
+        "-xp {output.patch} {params.radius_arg} {wildcards.frequency}"
 
 
 rule cat_patches:
@@ -146,9 +146,12 @@ rule cat_patches:
             rules.gen_patches.output.patch, allow_missing=True
         ),
     output:
-        combined_patch=bids(
-            root=str(Path(config["output_dir"]) / "c3d"),
-            suffix="all_patches_{afid}_train_all.dat",
+        combined_patch=protected(
+            bids(
+                root=str(Path(config["output_dir"]) / "c3d"),
+                desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
+                suffix="afid-{afid}_allpatches.dat",
+            )
         ),
     shell:
         "cat {input.patch} > {output.combined_patch}"
@@ -158,20 +161,23 @@ rule train_model:
     input:
         combined_patch=rules.cat_patches.output.combined_patch,
     output:
-        model=bids(
-            root=str(Path(config["output_dir"]) / "afids-cnn-train"),
-            suffix="afid-{afid}_cnn.model",
+        model=protected(
+            bids(
+                root=str(Path(config["output_dir"]) / "afids-cnn-train"),
+                desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
+                suffix="afid-{afid}_cnn.model",
+            )
         ),
         history=bids(
             root=str(Path(config["output_dir"]) / "afids-cnn-train"),
+            desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
             suffix="afid-{afid}_loss.csv",
         ),
     params:
         num_channels=config["num_channels"],
-        dims=config["dims"],
     shell:
-        "auto_afids_cnn_train {params.num_channels} {params.dims} {input.combined_patch} "
-        "{output.model} --loss_out_path {output.history}"
+        "auto_afids_cnn_train {params.num_channels} {wildcards.radius} "
+        "{input.combined_patch} {output.model} --loss_out_path {output.history}"
 
 
 rule all:
@@ -179,6 +185,10 @@ rule all:
         models=expand(
             rules.train_model.output.model,
             afid=range(32),
+            num_augment=config["num_augment"],
+            angle_stdev=config["angle_stdev"],
+            radius=config["radius"],
+            frequency=config["frequency"],
         ),
     output:
         combined_model=bids(

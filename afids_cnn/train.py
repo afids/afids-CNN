@@ -128,7 +128,7 @@ def fit_model(
 def gen_parser() -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument("num_channels", type=int)
-    parser.add_argument("dims", type=int, nargs=3)
+    parser.add_argument("radius", type=int)
     parser.add_argument("patches_path")
     parser.add_argument("model_out_path")
     parser.add_argument("--loss_out_path")
@@ -141,7 +141,7 @@ def main():
     new_train = create_generator(
         gen_training_array(
             args.num_channels,
-            np.array(args.dims),
+            np.array([(args.radius * 2) + 1 for _ in range(3)]),
             args.patches_path,
         ),
         batch_size=10,

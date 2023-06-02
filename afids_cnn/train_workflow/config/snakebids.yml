@@ -77,15 +77,21 @@ parse_args:
   --afids_dir:
     help: 'Path to a BIDS dataset with AFIDs placements corresponding to bids_dir.'
     required: True
+  --frequency:
+    help: 'Augmentation frequency in voxels.'
+    default: 1000
+  --angle_stdev:
+    help: 'Standard deviation of rotation angles applied in augmentation.'
+    default: 30
+  --num_augment:
+    help: 'Number of augmentations to make.'
+    default: 1
+  --radius:
+    help: 'Radius of patches to use.'
+    default: 31
 
 #--- workflow specific configuration -- below is just an example:
-num_augment: 1
-angle_stdev: 30
-radius_arg: 31x31x31
-radius: 31
-frequency: 1000
 num_channels: 2
-dims: [63, 63, 63]
 
 containers:
   c3d: docker://khanlab/neuroglia-core:v1.5

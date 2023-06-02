@@ -150,10 +150,18 @@ def gen_parser() -> ArgumentParser:
     parser.add_argument("img_path")
     parser.add_argument("model_path")
     parser.add_argument("out_path")
-    parser.add_argument("radius")
-    parser.add_argument("fid_num")
-    parser.add_argument("size")
-    parser.add_argument("padding")
+    parser.add_argument(
+        "radius", help="Radius of the patches that the model was trained on.",
+    )
+    parser.add_argument(
+        "fid_num",
+        help="Number of the fiducial model to apply. E.g. AC is number 1.",
+    )
+    parser.add_argument("size", help="Size with which to resample the MNI AFID.")
+    parser.add_argument(
+        "padding",
+        help="Number of zeroes to add to the edge of the MNI AFID.",
+    )
     return parser
 
 
