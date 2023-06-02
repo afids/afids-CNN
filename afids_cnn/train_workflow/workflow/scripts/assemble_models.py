@@ -21,8 +21,8 @@ def assemble_models(
             config_info,
             BytesIO(config_content),
         )
-        for afid_num in range(1, 33):
-            tar_file.add(models[afid_num])
+        for afid_label in range(1, 33):
+            tar_file.add(models[afid_label], arcname=f"afid-{afid_label:02}.model")
 
 
 def gen_parser() -> ArgumentParser:

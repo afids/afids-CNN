@@ -184,7 +184,7 @@ rule all:
     input:
         models=expand(
             rules.train_model.output.model,
-            afid=range(32),
+            afid=[f"{afid:02}" for afid in range(1, 33)],
             num_augment=config["num_augment"],
             angle_stdev=config["angle_stdev"],
             radius=config["radius"],

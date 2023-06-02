@@ -20,9 +20,20 @@ def load_fcsv(fcsv_path: PathLike[str] | str) -> pd.DataFrame:
 
 
 # utils to factor out
-def get_fid(fcsv_df: pd.DataFrame, fid_num: int) -> NDArray:
-    """Extract specific fiducial's spatial coordinates."""
-    return fcsv_df.loc[fid_num, ["x", "y", "z"]].to_numpy(dtype="single", copy=True)
+def get_fid(fcsv_df: pd.DataFrame, fid_label: int) -> NDArray:
+    """Extract specific fiducial's spatial coordinates.
+
+    Parameters
+    ----------
+    fcsv_df
+        Dataframe with the FCSV data.
+    fid_label
+        Label (1-32) of the fiducial to grab.
+    """
+    return fcsv_df.loc[fid_label - 1, ["x", "y", "z"]].to_numpy(
+        dtype="single",
+        copy=True,
+    )
 
 
 def fid_voxel2world(fid_voxel: NDArray, nii_affine: NDArray) -> NDArray:
@@ -114,13 +125,13 @@ def apply_afid_model(
     mni_fid_path: PathLike[str] | str,
     mni_img_path: PathLike[str] | str,
     radius: int,
-    fid_num: int,
+    fid_label: int,
     size: int,
     padding: int,
 ) -> NDArray:
     mni_img = nib.nifti1.load(mni_img_path)
     model = keras.models.load_model(model_path)
-    mni_fid_world = get_fid(load_fcsv(mni_fid_path), fid_num - 1)
+    mni_fid_world = get_fid(load_fcsv(mni_fid_path), fid_label - 1)
     mni_fid_resampled = fid_world2voxel(
         mni_fid_world,
         mni_img.affine,
@@ -151,16 +162,20 @@ def gen_parser() -> ArgumentParser:
     parser.add_argument("model_path")
     parser.add_argument("out_path")
     parser.add_argument(
-        "radius", help="Radius of the patches that the model was trained on.",
+        "radius",
+        help="Radius of the patches that the model was trained on.",
     )
     parser.add_argument(
-        "fid_num",
-        help="Number of the fiducial model to apply. E.g. AC is number 1.",
+        "fid_label",
+        help="Label (1-32) of the fiducial model to apply. E.g. AC is label 1.",
     )
-    parser.add_argument("size", help="Size with which to resample the MNI AFID.")
     parser.add_argument(
-        "padding",
+        "--size", help="Size with which to resample the MNI AFID.", type=int, default=1,
+    )
+    parser.add_argument(
+        "--padding",
         help="Number of zeroes to add to the edge of the MNI AFID.",
+        default=0,
     )
     return parser
 
@@ -176,7 +191,7 @@ def main() -> None:
         / "resources"
         / "tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz",
         int(args.radius),
-        int(args.fid_num),
+        int(args.fid_label),
         int(args.size),
         int(args.padding),
     )
