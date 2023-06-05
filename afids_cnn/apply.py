@@ -164,7 +164,10 @@ def apply_afid_model(
 
 
 def apply_model(
-    img: nib.nifti1.Nifti1Image, fid_label: int, model: keras.model, radius: int,
+    img: nib.nifti1.Nifti1Image | nib.nifti1.Nifti1Pair,
+    fid_label: int,
+    model: keras.model,
+    radius: int,
 ) -> NDArray:
     mni_fid_world = get_fid(load_fcsv(MNI_FCSV), fid_label - 1)
     mni_img = nib.nifti1.load(MNI_IMG)

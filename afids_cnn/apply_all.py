@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tarfile
 import tempfile
+from argparse import ArgumentParser
 from os import PathLike
 from pathlib import Path
 from typing import IO
@@ -12,11 +13,12 @@ from numpy.typing import NDArray
 from tensorflow import keras
 
 from afids_cnn.apply import apply_model
+from afids_cnn.utils import afids_to_fcsv
 
 
 def apply_all(
     model_path: PathLike[str] | str,
-    img: nib.nifti1.Nifti1Image,
+    img: nib.nifti1.Nifti1Image | nib.nifti1.Nifti1Pair,
 ) -> dict[int, NDArray]:
     with tarfile.open(model_path, "r:gz") as tar_file:
         config_file = extract_config(tar_file)
@@ -67,3 +69,23 @@ class ArchiveMissingDataError(Exception):
         super().__init__(
             f"Required data {missing_data} not found in archive {tar_file}.",
         )
+
+
+def gen_parser() -> ArgumentParser:
+    parser = ArgumentParser()
+    parser.add_argument("img", help="The image for which to produce an FCSV.")
+    parser.add_argument("model", help="The afids-CNN model to apply.")
+    parser.add_argument("fcsv_path", help="The path to write the output FCSV.")
+    return parser
+
+
+def main():
+    args = gen_parser().parse_args()
+    img = nib.nifti1.load(args.img)
+
+    predictions = apply_all(args.model, img)
+    afids_to_fcsv(predictions, args.fcsv_path)
+
+
+if __name__ == "__main__":
+    main()
