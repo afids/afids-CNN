@@ -14,6 +14,13 @@ import skimage.measure
 from numpy.typing import NDArray
 from tensorflow import keras
 
+MNI_FCSV = (
+    Path(__file__).parent / "resources" / "tpl-MNI152NLin2009cAsym_res-01_T1w.fcsv"
+)
+MNI_IMG = (
+    Path(__file__).parent / "resources" / "tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz"
+)
+
 
 def load_fcsv(fcsv_path: PathLike[str] | str) -> pd.DataFrame:
     return pd.read_csv(fcsv_path, sep=",", header=2)
@@ -156,6 +163,33 @@ def apply_afid_model(
     return fid_voxel2world(fid_resampled, img.affine)
 
 
+def apply_model(
+    img: nib.nifti1.Nifti1Image, fid_label: int, model: keras.model, radius: int,
+) -> NDArray:
+    mni_fid_world = get_fid(load_fcsv(MNI_FCSV), fid_label - 1)
+    mni_img = nib.nifti1.load(MNI_IMG)
+    mni_fid_resampled = fid_world2voxel(
+        mni_fid_world,
+        mni_img.affine,
+        resample_size=1,
+        padding=0,
+    )
+    normalized = min_max_normalize(img.get_fdata())
+    distances = predict_distances(
+        radius,
+        model,
+        mni_fid_resampled,
+        normalized,
+    )
+    fid_resampled = process_distances(
+        distances,
+        normalized,
+        mni_fid_resampled,
+        radius,
+    )
+    return fid_voxel2world(fid_resampled, img.affine)
+
+
 def gen_parser() -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument("img_path")
@@ -170,7 +204,10 @@ def gen_parser() -> ArgumentParser:
         help="Label (1-32) of the fiducial model to apply. E.g. AC is label 1.",
     )
     parser.add_argument(
-        "--size", help="Size with which to resample the MNI AFID.", type=int, default=1,
+        "--size",
+        help="Size with which to resample the MNI AFID.",
+        type=int,
+        default=1,
     )
     parser.add_argument(
         "--padding",
