@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from argparse import ArgumentParser
 from os import PathLike
 from pathlib import Path
@@ -13,6 +14,8 @@ import pandas as pd
 import skimage.measure
 from numpy.typing import NDArray
 from tensorflow import keras
+
+logger = logging.getLogger(__name__)
 
 MNI_FCSV = (
     Path(__file__).parent / "resources" / "tpl-MNI152NLin2009cAsym_res-01_T1w.fcsv"
@@ -107,18 +110,27 @@ def process_distances(
     mni_fid: NDArray,
     radius: int,
 ) -> NDArray:
-    arr_dis = np.reshape(distances[0], (63, 63, 63))
+    dim = (2 * radius) + 1
+    arr_dis = np.reshape(distances[0], (dim, dim, dim))
     new_pred = np.full((img.shape), 100, dtype=float)
     slices = gen_patch_slices(mni_fid, radius)
     new_pred[slices[0], slices[1], slices[2]] = arr_dis
     transformed = np.exp(-0.5 * new_pred)
     thresh = np.percentile(transformed, 99.999)
-    transformed[transformed < thresh] = 0
-    transformed = transformed * 1000
-    transformed = transformed.astype(int)
-    new = skimage.measure.regionprops(transformed)
+    thresholded = transformed
+    thresholded[thresholded < thresh] = 0
+    thresholded = (thresholded * 1000).astype(int)
+    new = skimage.measure.regionprops(thresholded)
+    if not new:
+        logger.warning("No centroid found for this afid. Results will be suspect.")
+        return np.array(
+            np.unravel_index(
+                np.argmax(transformed, axis=None),
+                transformed.shape,
+            ),
+        )
     centroids = {
-        key: [centroid.centroid[idx] for centroid in new]
+        key: [region.centroid[idx] for region in new]
         for idx, key in enumerate(["x", "y", "z"])
     }
     return np.array(
@@ -138,7 +150,7 @@ def apply_afid_model(
 ) -> NDArray:
     mni_img = nib.nifti1.load(mni_img_path)
     model = keras.models.load_model(model_path)
-    mni_fid_world = get_fid(load_fcsv(mni_fid_path), fid_label - 1)
+    mni_fid_world = get_fid(load_fcsv(mni_fid_path), fid_label)
     mni_fid_resampled = fid_world2voxel(
         mni_fid_world,
         mni_img.affine,
@@ -169,7 +181,7 @@ def apply_model(
     model: keras.model,
     radius: int,
 ) -> NDArray:
-    mni_fid_world = get_fid(load_fcsv(MNI_FCSV), fid_label - 1)
+    mni_fid_world = get_fid(load_fcsv(MNI_FCSV), fid_label)
     mni_img = nib.nifti1.load(MNI_IMG)
     mni_fid_resampled = fid_world2voxel(
         mni_fid_world,

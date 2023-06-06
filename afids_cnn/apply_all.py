@@ -58,7 +58,15 @@ def extract_afids_model(
 ) -> Path:
     for member in tar_file.getmembers():
         if member.isdir() and f"afid-{afid_label:02}" in member.name:
-            tar_file.extract(member, out_path)
+            tar_file.extractall(
+                path=out_path,
+                members=[
+                    candidate
+                    for candidate in tar_file.getmembers()
+                    if candidate.name.startswith(f"{member.name}/")
+                ],
+            )
+
             return Path(out_path) / member.name
     msg = f"AFID {afid_label:02} model"
     raise ArchiveMissingDataError(msg, tar_file)
