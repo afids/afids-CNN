@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
+import tarfile
+import tempfile
 from argparse import ArgumentParser
 from os import PathLike
 from pathlib import Path
+from typing import IO
 
 import nibabel as nib
 import numpy as np
@@ -14,6 +17,8 @@ import pandas as pd
 import skimage.measure
 from numpy.typing import NDArray
 from tensorflow import keras
+
+from afids_cnn.utils import afids_to_fcsv
 
 logger = logging.getLogger(__name__)
 
@@ -138,43 +143,6 @@ def process_distances(
     )
 
 
-def apply_afid_model(
-    img_path: PathLike[str] | str,
-    model_path: PathLike[str] | str,
-    mni_fid_path: PathLike[str] | str,
-    mni_img_path: PathLike[str] | str,
-    radius: int,
-    fid_label: int,
-    size: int,
-    padding: int,
-) -> NDArray:
-    mni_img = nib.nifti1.load(mni_img_path)
-    model = keras.models.load_model(model_path)
-    mni_fid_world = get_fid(load_fcsv(mni_fid_path), fid_label)
-    mni_fid_resampled = fid_world2voxel(
-        mni_fid_world,
-        mni_img.affine,
-        resample_size=size,
-        padding=padding,
-    )
-    img = nib.nifti1.load(img_path)
-    # need to normalize image here
-    normalized = min_max_normalize(img.get_fdata())
-    distances = predict_distances(
-        radius,
-        model,
-        mni_fid_resampled,
-        normalized,
-    )
-    fid_resampled = process_distances(
-        distances,
-        normalized,
-        mni_fid_resampled,
-        radius,
-    )
-    return fid_voxel2world(fid_resampled, img.affine)
-
-
 def apply_model(
     img: nib.nifti1.Nifti1Image | nib.nifti1.Nifti1Pair,
     fid_label: int,
@@ -205,50 +173,83 @@ def apply_model(
     return fid_voxel2world(fid_resampled, img.affine)
 
 
+def apply_all(
+    model_path: PathLike[str] | str,
+    img: nib.nifti1.Nifti1Image | nib.nifti1.Nifti1Pair,
+) -> dict[int, NDArray]:
+    with tarfile.open(model_path, "r:gz") as tar_file:
+        config_file = extract_config(tar_file)
+        radius = int(json.load(config_file)["radius"])
+        afid_dict: dict[int, NDArray] = {}
+        for afid_label in range(1, 33):
+            with tempfile.TemporaryDirectory() as model_dir:
+                model = keras.models.load_model(
+                    extract_afids_model(tar_file, model_dir, afid_label),
+                )
+            afid_dict[afid_label] = apply_model(
+                img,
+                afid_label,
+                model,
+                radius,
+            )
+
+    return afid_dict
+
+
+def extract_config(tar_file: tarfile.TarFile) -> IO[bytes]:
+    try:
+        config_file = tar_file.extractfile("config.json")
+    except KeyError as err:
+        missing_data = "config file"
+        raise ArchiveMissingDataError(missing_data, tar_file) from err
+    if not config_file:
+        missing_data = "config file as file"
+        raise ArchiveMissingDataError(missing_data, tar_file)
+    return config_file
+
+
+def extract_afids_model(
+    tar_file: tarfile.TarFile,
+    out_path: PathLike[str] | str,
+    afid_label: int,
+) -> Path:
+    for member in tar_file.getmembers():
+        if member.isdir() and f"afid-{afid_label:02}" in member.name:
+            tar_file.extractall(
+                path=out_path,
+                members=[
+                    candidate
+                    for candidate in tar_file.getmembers()
+                    if candidate.name.startswith(f"{member.name}/")
+                ],
+            )
+
+            return Path(out_path) / member.name
+    msg = f"AFID {afid_label:02} model"
+    raise ArchiveMissingDataError(msg, tar_file)
+
+
+class ArchiveMissingDataError(Exception):
+    def __init__(self, missing_data: str, tar_file: tarfile.TarFile) -> None:
+        super().__init__(
+            f"Required data {missing_data} not found in archive {tar_file}.",
+        )
+
+
 def gen_parser() -> ArgumentParser:
     parser = ArgumentParser()
-    parser.add_argument("img_path")
-    parser.add_argument("model_path")
-    parser.add_argument("out_path")
-    parser.add_argument(
-        "radius",
-        help="Radius of the patches that the model was trained on.",
-    )
-    parser.add_argument(
-        "fid_label",
-        help="Label (1-32) of the fiducial model to apply. E.g. AC is label 1.",
-    )
-    parser.add_argument(
-        "--size",
-        help="Size with which to resample the MNI AFID.",
-        type=int,
-        default=1,
-    )
-    parser.add_argument(
-        "--padding",
-        help="Number of zeroes to add to the edge of the MNI AFID.",
-        default=0,
-    )
+    parser.add_argument("img", help="The image for which to produce an FCSV.")
+    parser.add_argument("model", help="The afids-CNN model to apply.")
+    parser.add_argument("fcsv_path", help="The path to write the output FCSV.")
     return parser
 
 
-def main() -> None:
+def main():
     args = gen_parser().parse_args()
+    img = nib.nifti1.load(args.img)
 
-    fid_world = apply_afid_model(
-        args.img_path,
-        args.model_path,
-        Path(__file__).parent / "resources" / "tpl-MNI152NLin2009cAsym_res-01_T1w.fcsv",
-        Path(__file__).parent
-        / "resources"
-        / "tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz",
-        int(args.radius),
-        int(args.fid_label),
-        int(args.size),
-        int(args.padding),
-    )
-    with Path(args.out_path).open("w") as out_file:
-        json.dump(list(fid_world), out_file)
+    predictions = apply_all(args.model, img)
+    afids_to_fcsv(predictions, args.fcsv_path)
 
 
 if __name__ == "__main__":
