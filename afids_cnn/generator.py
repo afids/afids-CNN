@@ -1,6 +1,5 @@
-"""
-From KERAS package
-https://github.com/keras-team/keras/blob/cebf2084ebb0a603383ceb6807653921796cd095/keras/preprocessing/image.py#L342
+"""From KERAS package
+https://github.com/keras-team/keras/blob/cebf2084ebb0a603383ceb6807653921796cd095/keras/preprocessing/image.py#L342.
 
 Based on Emadeldeen-24's work on time steps application
 https://gist.github.com/Emadeldeen-24/736c33ac2af0c00cc48810ad62e1f54a
@@ -10,37 +9,35 @@ Can easily be extended to include new transformations,
 new preprocessing methods, etc...
 """
 
-from functools import partial
-import multiprocessing.pool
-import numpy as np
+import contextlib
 import os
 import re
-from scipy import linalg
-import scipy.ndimage as ndi
-from six.moves import range
 import threading
 import warnings
 
-try:
+import numpy as np
+import scipy.ndimage as ndi
+
+with contextlib.suppress(Exception):
     from keras import backend as K
-    #print(K.floatx())
-    #K.set_floatx('float16')
-    #print(K.floatx())
-except:
-    pass
+
+
 
 try:
     from PIL import Image as pil_image
     from PIL import ImageEnhance
 except ImportError:
+    warnings.warn("PIL not installed. Image functionality will be missing.")
     pil_image = None
 
 # For elastic deform
-from scipy.ndimage.interpolation import map_coordinates
 from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage.interpolation import map_coordinates
 
-def random_rotation(x, rg, row_axis=1, col_axis=2, channel_axis=0,
-                    fill_mode='nearest', cval=0.):
+
+def random_rotation(
+    x, rg, row_axis=1, col_axis=2, channel_axis=0, fill_mode="nearest", cval=0.0,
+):
     """Performs a random rotation of a Numpy image tensor.
     # Arguments
         x: Input tensor. Must be 3D.
@@ -57,9 +54,13 @@ def random_rotation(x, rg, row_axis=1, col_axis=2, channel_axis=0,
         Rotated Numpy image tensor.
     """
     theta = np.pi / 180 * np.random.uniform(-rg, rg)
-    rotation_matrix = np.array([[np.cos(theta), -np.sin(theta), 0],
-                                [np.sin(theta), np.cos(theta), 0],
-                                [0, 0, 1]])
+    rotation_matrix = np.array(
+        [
+            [np.cos(theta), -np.sin(theta), 0],
+            [np.sin(theta), np.cos(theta), 0],
+            [0, 0, 1],
+        ],
+    )
 
     h, w = x.shape[row_axis], x.shape[col_axis]
     transform_matrix = transform_matrix_offset_center(rotation_matrix, h, w)
@@ -85,8 +86,9 @@ def apply_brightness_shift(x, brightness):
     return x
 
 
-def random_shift(x, wrg, hrg, row_axis=1, col_axis=2, channel_axis=0,
-                 fill_mode='nearest', cval=0.):
+def random_shift(
+    x, wrg, hrg, row_axis=1, col_axis=2, channel_axis=0, fill_mode="nearest", cval=0.0,
+):
     """Performs a random spatial shift of a Numpy image tensor.
     # Arguments
         x: Input tensor. Must be 3D.
@@ -106,17 +108,16 @@ def random_shift(x, wrg, hrg, row_axis=1, col_axis=2, channel_axis=0,
     h, w = x.shape[row_axis], x.shape[col_axis]
     tx = np.random.uniform(-hrg, hrg) * h
     ty = np.random.uniform(-wrg, wrg) * w
-    translation_matrix = np.array([[1, 0, tx],
-                                   [0, 1, ty],
-                                   [0, 0, 1]])
+    translation_matrix = np.array([[1, 0, tx], [0, 1, ty], [0, 0, 1]])
 
     transform_matrix = translation_matrix  # no need to do offset
     x = apply_transform(x, transform_matrix, channel_axis, fill_mode, cval)
     return x
 
 
-def random_shear(x, intensity, row_axis=1, col_axis=2, channel_axis=0,
-                 fill_mode='nearest', cval=0.):
+def random_shear(
+    x, intensity, row_axis=1, col_axis=2, channel_axis=0, fill_mode="nearest", cval=0.0,
+):
     """Performs a random spatial shear of a Numpy image tensor.
     # Arguments
         x: Input tensor. Must be 3D.
@@ -133,9 +134,7 @@ def random_shear(x, intensity, row_axis=1, col_axis=2, channel_axis=0,
         Sheared Numpy image tensor.
     """
     shear = np.random.uniform(-intensity, intensity)
-    shear_matrix = np.array([[1, -np.sin(shear), 0],
-                             [0, np.cos(shear), 0],
-                             [0, 0, 1]])
+    shear_matrix = np.array([[1, -np.sin(shear), 0], [0, np.cos(shear), 0], [0, 0, 1]])
 
     h, w = x.shape[row_axis], x.shape[col_axis]
     transform_matrix = transform_matrix_offset_center(shear_matrix, h, w)
@@ -143,8 +142,9 @@ def random_shear(x, intensity, row_axis=1, col_axis=2, channel_axis=0,
     return x
 
 
-def random_zoom(x, zoom_range, row_axis=1, col_axis=2, channel_axis=0,
-                fill_mode='nearest', cval=0.):
+def random_zoom(
+    x, zoom_range, row_axis=1, col_axis=2, channel_axis=0, fill_mode="nearest", cval=0.0,
+):
     """Performs a random spatial zoom of a Numpy image tensor.
     # Arguments
         x: Input tensor. Must be 3D.
@@ -163,16 +163,17 @@ def random_zoom(x, zoom_range, row_axis=1, col_axis=2, channel_axis=0,
         ValueError: if `zoom_range` isn't a tuple.
     """
     if len(zoom_range) != 2:
-        raise ValueError('`zoom_range` should be a tuple or list of two floats. '
-                         'Received arg: ', zoom_range)
+        msg = "`zoom_range` should be a tuple or list of two floats. Received arg: "
+        raise ValueError(
+            msg,
+            zoom_range,
+        )
 
     if zoom_range[0] == 1 and zoom_range[1] == 1:
         zx, zy = 1, 1
     else:
         zx, zy = np.random.uniform(zoom_range[0], zoom_range[1], 2)
-    zoom_matrix = np.array([[zx, 0, 0],
-                            [0, zy, 0],
-                            [0, 0, 1]])
+    zoom_matrix = np.array([[zx, 0, 0], [0, zy, 0], [0, 0, 1]])
 
     h, w = x.shape[row_axis], x.shape[col_axis]
     transform_matrix = transform_matrix_offset_center(zoom_matrix, h, w)
@@ -181,8 +182,7 @@ def random_zoom(x, zoom_range, row_axis=1, col_axis=2, channel_axis=0,
 
 
 def elastic_deform(image, alpha, sigma, random_state=None):
-    """
-    Based on https://gist.github.com/erniejunior/601cdf56d2b424757de5
+    """Based on https://gist.github.com/erniejunior/601cdf56d2b424757de5
     Elastic deformation of images as described in [Simard2003]_.
     .. [Simard2003] Simard, Steinkraus and Platt, "Best Practices for
        Convolutional Neural Networks applied to Visual Document Analysis", in
@@ -196,22 +196,38 @@ def elastic_deform(image, alpha, sigma, random_state=None):
         random_state = np.random.RandomState(random_state)
 
     shape = image.shape
-    dx = gaussian_filter((random_state.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0) * alpha
-    dy = gaussian_filter((random_state.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0) * alpha
+    dx = (
+        gaussian_filter(
+            (random_state.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0,
+        )
+        * alpha
+    )
+    dy = (
+        gaussian_filter(
+            (random_state.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0,
+        )
+        * alpha
+    )
     dz = np.zeros_like(dx)
 
     x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]))
-    indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1)), np.reshape(z, (-1, 1))
+    indices = (
+        np.reshape(y + dy, (-1, 1)),
+        np.reshape(x + dx, (-1, 1)),
+        np.reshape(z, (-1, 1)),
+    )
 
-    distored_image = map_coordinates(image, indices, order=1, mode='reflect')
+    distored_image = map_coordinates(image, indices, order=1, mode="reflect")
     return distored_image.reshape(image.shape)
 
 
 def random_channel_shift(x, intensity, channel_axis=0):
     x = np.rollaxis(x, channel_axis, 0)
     min_x, max_x = np.min(x), np.max(x)
-    channel_images = [np.clip(x_channel + np.random.uniform(-intensity, intensity), min_x, max_x)
-                      for x_channel in x]
+    channel_images = [
+        np.clip(x_channel + np.random.uniform(-intensity, intensity), min_x, max_x)
+        for x_channel in x
+    ]
     x = np.stack(channel_images, axis=0)
     x = np.rollaxis(x, 0, channel_axis + 1)
     return x
@@ -226,11 +242,7 @@ def transform_matrix_offset_center(matrix, x, y):
     return transform_matrix
 
 
-def apply_transform(x,
-                    transform_matrix,
-                    channel_axis=0,
-                    fill_mode='nearest',
-                    cval=0.):
+def apply_transform(x, transform_matrix, channel_axis=0, fill_mode="nearest", cval=0.0):
     """Apply the image transformation specified by a matrix.
     # Arguments
         x: 2D numpy array, single image.
@@ -247,13 +259,17 @@ def apply_transform(x,
     x = np.rollaxis(x, channel_axis, 0)
     final_affine_matrix = transform_matrix[:2, :2]
     final_offset = transform_matrix[:2, 2]
-    channel_images = [ndi.interpolation.affine_transform(
-        x_channel,
-        final_affine_matrix,
-        final_offset,
-        order=3,
-        mode=fill_mode,
-        cval=cval) for x_channel in x]
+    channel_images = [
+        ndi.interpolation.affine_transform(
+            x_channel,
+            final_affine_matrix,
+            final_offset,
+            order=3,
+            mode=fill_mode,
+            cval=cval,
+        )
+        for x_channel in x
+    ]
     x = np.stack(channel_images, axis=0)
     x = np.rollaxis(x, 0, channel_axis + 1)
     return x
@@ -285,22 +301,28 @@ def array_to_img(x, data_format=None, scale=True):
         ValueError: if invalid `x` or `data_format` is passed.
     """
     if pil_image is None:
-        raise ImportError('Could not import PIL.Image. '
-                          'The use of `array_to_img` requires PIL.')
+        msg = "Could not import PIL.Image. The use of `array_to_img` requires PIL."
+        raise ImportError(
+            msg,
+        )
     x = np.asarray(x, dtype=K.floatx())
     if x.ndim != 3:
-        raise ValueError('Expected image array to have rank 3 (single image). '
-                         'Got array with shape:', x.shape)
+        msg = "Expected image array to have rank 3 (single image). Got array with shape:"
+        raise ValueError(
+            msg,
+            x.shape,
+        )
 
     if data_format is None:
         data_format = K.image_data_format()
-    if data_format not in {'channels_first', 'channels_last'}:
-        raise ValueError('Invalid data_format:', data_format)
+    if data_format not in {"channels_first", "channels_last"}:
+        msg = "Invalid data_format:"
+        raise ValueError(msg, data_format)
 
     # Original Numpy array x has format (height, width, channel)
     # or (channel, height, width)
     # but target PIL image has format (width, height, channel)
-    if data_format == 'channels_first':
+    if data_format == "channels_first":
         x = x.transpose(1, 2, 0)
     if scale:
         x = x + max(-np.min(x), 0)
@@ -310,12 +332,13 @@ def array_to_img(x, data_format=None, scale=True):
         x *= 255
     if x.shape[2] == 3:
         # RGB
-        return pil_image.fromarray(x.astype('uint8'), 'RGB')
+        return pil_image.fromarray(x.astype("uint8"), "RGB")
     elif x.shape[2] == 1:
         # grayscale
-        return pil_image.fromarray(x[:, :, 0].astype('uint8'), 'L')
+        return pil_image.fromarray(x[:, :, 0].astype("uint8"), "L")
     else:
-        raise ValueError('Unsupported channel number: ', x.shape[2])
+        msg = "Unsupported channel number: "
+        raise ValueError(msg, x.shape[2])
 
 
 def img_to_array(img, data_format=None):
@@ -330,22 +353,24 @@ def img_to_array(img, data_format=None):
     """
     if data_format is None:
         data_format = K.image_data_format()
-    if data_format not in {'channels_first', 'channels_last'}:
-        raise ValueError('Unknown data_format: ', data_format)
+    if data_format not in {"channels_first", "channels_last"}:
+        msg = "Unknown data_format: "
+        raise ValueError(msg, data_format)
     # Numpy array x has format (height, width, channel)
     # or (channel, height, width)
     # but original PIL image has format (width, height, channel)
     x = np.asarray(img, dtype=K.floatx())
     if len(x.shape) == 3:
-        if data_format == 'channels_first':
+        if data_format == "channels_first":
             x = x.transpose(2, 0, 1)
     elif len(x.shape) == 2:
-        if data_format == 'channels_first':
+        if data_format == "channels_first":
             x = x.reshape((1, x.shape[0], x.shape[1]))
         else:
             x = x.reshape((x.shape[0], x.shape[1], 1))
     else:
-        raise ValueError('Unsupported image shape: ', x.shape)
+        msg = "Unsupported image shape: "
+        raise ValueError(msg, x.shape)
     return x
 
 
@@ -362,15 +387,17 @@ def load_img(path, grayscale=False, target_size=None):
         ImportError: if PIL is not available.
     """
     if pil_image is None:
-        raise ImportError('Could not import PIL.Image. '
-                          'The use of `array_to_img` requires PIL.')
+        msg = "Could not import PIL.Image. The use of `array_to_img` requires PIL."
+        raise ImportError(
+            msg,
+        )
     img = pil_image.open(path)
     if grayscale:
-        if img.mode != 'L':
-            img = img.convert('L')
+        if img.mode != "L":
+            img = img.convert("L")
     else:
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
+        if img.mode != "RGB":
+            img = img.convert("RGB")
     if target_size:
         hw_tuple = (target_size[1], target_size[0])
         if img.size != hw_tuple:
@@ -378,13 +405,16 @@ def load_img(path, grayscale=False, target_size=None):
     return img
 
 
-def list_pictures(directory, ext='jpg|jpeg|bmp|png'):
-    return [os.path.join(root, f)
-            for root, _, files in os.walk(directory) for f in files
-            if re.match(r'([\w]+\.(?:' + ext + '))', f)]
+def list_pictures(directory, ext="jpg|jpeg|bmp|png"):
+    return [
+        os.path.join(root, f)
+        for root, _, files in os.walk(directory)
+        for f in files
+        if re.match(r"([\w]+\.(?:" + ext + "))", f)
+    ]
 
 
-class customImageDataGenerator(object):
+class customImageDataGenerator:
     """Generate minibatches of image data with real-time data augmentation.
     # Arguments
         featurewise_center: set input mean to 0 over the dataset.
@@ -424,30 +454,32 @@ class customImageDataGenerator(object):
             If you never set it, then it will be "channels_last".
     """
 
-    def __init__(self,
-                 featurewise_center=False,
-                 samplewise_center=False,
-                 featurewise_std_normalization=False,
-                 samplewise_std_normalization=False,
-                 zca_whitening=False,
-                 zca_epsilon=1e-6,
-                 rotation_range=0.,
-                 width_shift_range=0.,
-                 height_shift_range=0.,
-                 brightness_range=None,
-                 elastic_deform = False, # Elastic Deformation
-                 shear_range=0.,
-                 zoom_range=0.,
-                 channel_shift_range=0.,
-                 fill_mode='nearest',
-                 cval=0.,
-                 horizontal_flip=False,
-                 vertical_flip=False,
-                 rescale=None,
-                 preprocessing_function=None,
-                 expand_dims = True,
-                 data_format=None,
-                 random_mult_range=0):
+    def __init__(
+        self,
+        featurewise_center=False,
+        samplewise_center=False,
+        featurewise_std_normalization=False,
+        samplewise_std_normalization=False,
+        zca_whitening=False,
+        zca_epsilon=1e-6,
+        rotation_range=0.0,
+        width_shift_range=0.0,
+        height_shift_range=0.0,
+        brightness_range=None,
+        elastic_deform=False,  # Elastic Deformation
+        shear_range=0.0,
+        zoom_range=0.0,
+        channel_shift_range=0.0,
+        fill_mode="nearest",
+        cval=0.0,
+        horizontal_flip=False,
+        vertical_flip=False,
+        rescale=None,
+        preprocessing_function=None,
+        expand_dims=True,
+        data_format=None,
+        random_mult_range=0,
+    ) -> None:
         if data_format is None:
             data_format = K.image_data_format()
         self.featurewise_center = featurewise_center
@@ -473,16 +505,18 @@ class customImageDataGenerator(object):
         self.random_mult_range = random_mult_range
         self.expand_dims = expand_dims
 
-        if data_format not in {'channels_last', 'channels_first'}:
-            raise ValueError('`data_format` should be `"channels_last"` (channel after row and '
-                             'column) or `"channels_first"` (channel before row and column). '
-                             'Received arg: ', data_format)
+        if data_format not in {"channels_last", "channels_first"}:
+            msg = '`data_format` should be `"channels_last"` (channel after row and column) or `"channels_first"` (channel before row and column). Received arg: '
+            raise ValueError(
+                msg,
+                data_format,
+            )
         self.data_format = data_format
-        if data_format == 'channels_first':
+        if data_format == "channels_first":
             self.channel_axis = 1
             self.row_axis = 2
             self.col_axis = 3
-        if data_format == 'channels_last':
+        if data_format == "channels_last":
             self.channel_axis = 3
             self.row_axis = 1
             self.col_axis = 2
@@ -496,22 +530,35 @@ class customImageDataGenerator(object):
         elif len(zoom_range) == 2:
             self.zoom_range = [zoom_range[0], zoom_range[1]]
         else:
-            raise ValueError('`zoom_range` should be a float or '
-                             'a tuple or list of two floats. '
-                             'Received arg: ', zoom_range)
+            msg = "`zoom_range` should be a float or a tuple or list of two floats. Received arg: "
+            raise ValueError(
+                msg,
+                zoom_range,
+            )
 
-    def flow(self, x, y=None, batch_size=32,  
-             shuffle=True, seed=None,
-             save_to_dir=None, save_prefix='', save_format='png'):
+    def flow(
+        self,
+        x,
+        y=None,
+        batch_size=32,
+        shuffle=True,
+        seed=None,
+        save_to_dir=None,
+        save_prefix="",
+        save_format="png",
+    ):
         return NumpyArrayIterator(
-            x, y, self,
+            x,
+            y,
+            self,
             batch_size=batch_size,
             shuffle=shuffle,
             seed=seed,
             data_format=self.data_format,
             save_to_dir=save_to_dir,
             save_prefix=save_prefix,
-            save_format=save_format)
+            save_format=save_format,
+        )
 
     def standardize(self, x):
         """Apply the normalization configuration to a batch of inputs.
@@ -529,34 +576,40 @@ class customImageDataGenerator(object):
         if self.samplewise_center:
             x -= np.mean(x, axis=img_channel_axis, keepdims=True)
         if self.samplewise_std_normalization:
-            x /= (np.std(x, axis=img_channel_axis, keepdims=True) + 1e-7)
+            x /= np.std(x, axis=img_channel_axis, keepdims=True) + 1e-7
 
         if self.featurewise_center:
             if self.mean is not None:
                 x -= self.mean
             else:
-                warnings.warn('This ImageDataGenerator specifies '
-                              '`featurewise_center`, but it hasn\'t'
-                              'been fit on any training data. Fit it '
-                              'first by calling `.fit(numpy_data)`.')
+                warnings.warn(
+                    "This ImageDataGenerator specifies "
+                    "`featurewise_center`, but it hasn't"
+                    "been fit on any training data. Fit it "
+                    "first by calling `.fit(numpy_data)`.",
+                )
         if self.featurewise_std_normalization:
             if self.std is not None:
-                x /= (self.std + 1e-7)
+                x /= self.std + 1e-7
             else:
-                warnings.warn('This ImageDataGenerator specifies '
-                              '`featurewise_std_normalization`, but it hasn\'t'
-                              'been fit on any training data. Fit it '
-                              'first by calling `.fit(numpy_data)`.')
+                warnings.warn(
+                    "This ImageDataGenerator specifies "
+                    "`featurewise_std_normalization`, but it hasn't"
+                    "been fit on any training data. Fit it "
+                    "first by calling `.fit(numpy_data)`.",
+                )
         if self.zca_whitening:
             if self.principal_components is not None:
                 flatx = np.reshape(x, (-1, np.prod(x.shape[-3:])))
                 whitex = np.dot(flatx, self.principal_components)
                 x = np.reshape(whitex, x.shape)
             else:
-                warnings.warn('This ImageDataGenerator specifies '
-                              '`zca_whitening`, but it hasn\'t'
-                              'been fit on any training data. Fit it '
-                              'first by calling `.fit(numpy_data)`.')
+                warnings.warn(
+                    "This ImageDataGenerator specifies "
+                    "`zca_whitening`, but it hasn't"
+                    "been fit on any training data. Fit it "
+                    "first by calling `.fit(numpy_data)`.",
+                )
         return x
 
     def random_transform(self, x, seed=None):
@@ -571,24 +624,31 @@ class customImageDataGenerator(object):
         img_row_axis = self.row_axis - 1
         img_col_axis = self.col_axis - 1
         img_channel_axis = self.channel_axis - 1
-        
+
         np.random.seed(seed)
 
         if self.rotation_range:
-            theta = np.pi / 180 * \
-                np.random.uniform(-self.rotation_range, self.rotation_range)
+            theta = (
+                np.pi
+                / 180
+                * np.random.uniform(-self.rotation_range, self.rotation_range)
+            )
         else:
             theta = 0
 
         if self.height_shift_range:
-            tx = np.random.uniform(-self.height_shift_range,
-                                   self.height_shift_range) * x.shape[img_row_axis]
+            tx = (
+                np.random.uniform(-self.height_shift_range, self.height_shift_range)
+                * x.shape[img_row_axis]
+            )
         else:
             tx = 0
 
         if self.width_shift_range:
-            ty = np.random.uniform(-self.width_shift_range,
-                                   self.width_shift_range) * x.shape[img_col_axis]
+            ty = (
+                np.random.uniform(-self.width_shift_range, self.width_shift_range)
+                * x.shape[img_col_axis]
+            )
         else:
             ty = 0
 
@@ -600,78 +660,91 @@ class customImageDataGenerator(object):
         if self.zoom_range[0] == 1 and self.zoom_range[1] == 1:
             zx, zy = 1, 1
         else:
-            zx = np.random.uniform(
-                self.zoom_range[0], self.zoom_range[1], 1)[0]
+            zx = np.random.uniform(self.zoom_range[0], self.zoom_range[1], 1)[0]
             zy = zx.copy()
 
         transform_matrix = None
         if theta != 0:
-            rotation_matrix = np.array([[np.cos(theta), -np.sin(theta), 0],
-                                        [np.sin(theta), np.cos(theta), 0],
-                                        [0, 0, 1]])
+            rotation_matrix = np.array(
+                [
+                    [np.cos(theta), -np.sin(theta), 0],
+                    [np.sin(theta), np.cos(theta), 0],
+                    [0, 0, 1],
+                ],
+            )
             transform_matrix = rotation_matrix
 
         if tx != 0 or ty != 0:
-            shift_matrix = np.array([[1, 0, tx],
-                                     [0, 1, ty],
-                                     [0, 0, 1]])
-            transform_matrix = shift_matrix if transform_matrix is None else np.dot(
-                transform_matrix, shift_matrix)
+            shift_matrix = np.array([[1, 0, tx], [0, 1, ty], [0, 0, 1]])
+            transform_matrix = (
+                shift_matrix
+                if transform_matrix is None
+                else np.dot(transform_matrix, shift_matrix)
+            )
 
         if shear != 0:
-            shear_matrix = np.array([[1, -np.sin(shear), 0],
-                                     [0, np.cos(shear), 0],
-                                     [0, 0, 1]])
-            transform_matrix = shear_matrix if transform_matrix is None else np.dot(
-                transform_matrix, shear_matrix)
+            shear_matrix = np.array(
+                [[1, -np.sin(shear), 0], [0, np.cos(shear), 0], [0, 0, 1]],
+            )
+            transform_matrix = (
+                shear_matrix
+                if transform_matrix is None
+                else np.dot(transform_matrix, shear_matrix)
+            )
 
         if zx != 1 or zy != 1:
-            zoom_matrix = np.array([[zx, 0, 0],
-                                    [0, zy, 0],
-                                    [0, 0, 1]])
-            transform_matrix = zoom_matrix if transform_matrix is None else np.dot(
-                transform_matrix, zoom_matrix)
+            zoom_matrix = np.array([[zx, 0, 0], [0, zy, 0], [0, 0, 1]])
+            transform_matrix = (
+                zoom_matrix
+                if transform_matrix is None
+                else np.dot(transform_matrix, zoom_matrix)
+            )
 
         if transform_matrix is not None:
             h, w = x.shape[img_row_axis], x.shape[img_col_axis]
-            transform_matrix = transform_matrix_offset_center(
-                transform_matrix, h, w)
-            x = apply_transform(x, transform_matrix, img_channel_axis,
-                                fill_mode=self.fill_mode, cval=self.cval)
+            transform_matrix = transform_matrix_offset_center(transform_matrix, h, w)
+            x = apply_transform(
+                x,
+                transform_matrix,
+                img_channel_axis,
+                fill_mode=self.fill_mode,
+                cval=self.cval,
+            )
 
         if self.elastic_deform:
-            x = elastic_deform(x, alpha=self.elastic_deform[0], sigma=self.elastic_deform[1], random_state=seed)
+            x = elastic_deform(
+                x,
+                alpha=self.elastic_deform[0],
+                sigma=self.elastic_deform[1],
+                random_state=seed,
+            )
 
         if self.channel_shift_range != 0:
-            x = random_channel_shift(x,
-                                     self.channel_shift_range,
-                                     img_channel_axis)
-        if self.horizontal_flip:
-            if np.random.random() < 0.5:
-                x = flip_axis(x, img_col_axis)
+            x = random_channel_shift(x, self.channel_shift_range, img_channel_axis)
+        if self.horizontal_flip and np.random.random() < 0.5:
+            x = flip_axis(x, img_col_axis)
 
-        if self.vertical_flip:
-            if np.random.random() < 0.5:
-                x = flip_axis(x, img_row_axis)
+        if self.vertical_flip and np.random.random() < 0.5:
+            x = flip_axis(x, img_row_axis)
 
-        if self.random_mult_range != 0:
-            if np.random.random() < 0.5:
-                x = random_mutiplication(x, self.random_mult_range)
-        
-        if self.brightness_range is not None:
-            if np.random.random() < 0.5:
-                if len(self.brightness_range) != 2:
-                    raise ValueError(
-                        '`brightness_range should be tuple or list of two floats. '
-                        'Received: %s' % (self.brightness_range,))
-                brightness = np.random.uniform(self.brightness_range[0],
-                                               self.brightness_range[1])
-                x = apply_brightness_shift(x, brightness)
-                
+        if self.random_mult_range != 0 and np.random.random() < 0.5:
+            x = random_mutiplication(x, self.random_mult_range)
+
+        if self.brightness_range is not None and np.random.random() < 0.5:
+            if len(self.brightness_range) != 2:
+                msg = f"`brightness_range should be tuple or list of two floats. Received: {self.brightness_range}"
+                raise ValueError(
+                    msg,
+                )
+            brightness = np.random.uniform(
+                self.brightness_range[0], self.brightness_range[1],
+            )
+            x = apply_brightness_shift(x, brightness)
+
         return x
 
 
-class Iterator(object):
+class Iterator:
     """Abstract base class for image data iterators.
     # Arguments
         n: Integer, total number of samples in the dataset to loop over.
@@ -680,7 +753,7 @@ class Iterator(object):
         seed: Random seeding for data shuffling.
     """
 
-    def __init__(self, n, batch_size, slices_per_volume, shuffle, seed):
+    def __init__(self, n, batch_size, slices_per_volume, shuffle, seed) -> None:
         self.n = n
         self.batch_size = batch_size
         self.slices_per_volume = slices_per_volume
@@ -688,12 +761,16 @@ class Iterator(object):
         self.batch_index = 0
         self.total_batches_seen = 0
         self.lock = threading.Lock()
-        self.index_generator = self._flow_index(n, batch_size, slices_per_volume, shuffle, seed)
+        self.index_generator = self._flow_index(
+            n, batch_size, slices_per_volume, shuffle, seed,
+        )
 
     def reset(self):
         self.batch_index = 0
 
-    def _flow_index(self, n, batch_size=32, slices_per_volume=4, shuffle=False, seed=None):
+    def _flow_index(
+        self, n, batch_size=32, slices_per_volume=4, shuffle=False, seed=None,
+    ):
         # Ensure self.batch_index is 0.
         self.reset()
         while True:
@@ -711,8 +788,11 @@ class Iterator(object):
                 current_batch_size = n - current_index
                 self.batch_index = 0
             self.total_batches_seen += 1
-            yield (index_array[current_index: current_index + current_batch_size],
-                   current_index, current_batch_size)
+            yield (
+                index_array[current_index : current_index + current_batch_size],
+                current_index,
+                current_batch_size,
+            )
 
     def __iter__(self):
         # Needed if we want to do something like:
@@ -744,35 +824,48 @@ class NumpyArrayIterator(Iterator):
             (if `save_to_dir` is set).
     """
 
-    def __init__(self, x, y, image_data_generator,
-                 batch_size=32, 
-                 shuffle=False, seed=None,
-                 data_format=None,
-                 save_to_dir=None, save_prefix='', save_format='png'):
+    def __init__(
+        self,
+        x,
+        y,
+        image_data_generator,
+        batch_size=32,
+        shuffle=False,
+        seed=None,
+        data_format=None,
+        save_to_dir=None,
+        save_prefix="",
+        save_format="png",
+    ) -> None:
         if y is not None and len(x) != len(y):
-            raise ValueError('X (images tensor) and y (labels) '
-                             'should have the same length. '
-                             'Found: X.shape = %s, y.shape = %s' %
-                             (np.asarray(x).shape, np.asarray(y).shape))
+            msg = f"X (images tensor) and y (labels) should have the same length. Found: X.shape = {np.asarray(x).shape}, y.shape = {np.asarray(y).shape}"
+            raise ValueError(
+                msg,
+            )
 
         if data_format is None:
             data_format = K.image_data_format()
         self.x = np.asarray(x, dtype=K.floatx())
 
         if self.x.ndim != 5:
-            raise ValueError('Input data in `NumpyArrayIterator` '
-                             'should have rank 5. You passed an array '
-                             'with shape', self.x.shape)
-        channels_axis = 4 if data_format == 'channels_last' else 1
+            msg = "Input data in `NumpyArrayIterator` should have rank 5. You passed an array with shape"
+            raise ValueError(
+                msg,
+                self.x.shape,
+            )
+        channels_axis = 4 if data_format == "channels_last" else 1
         if self.x.shape[channels_axis] not in {1, 2, 3, 4}:
-            warnings.warn('NumpyArrayIterator is set to use the '
-                          'data format convention "' + data_format + '" '
-                          '(channels on axis ' +
-                          str(channels_axis) + '), i.e. expected '
-                          'either 1, 2, 3 or 4 channels on axis ' +
-                          str(channels_axis) + '. '
-                          'However, it was passed an array with shape ' + str(self.x.shape) +
-                          ' (' + str(self.x.shape[channels_axis]) + ' channels).')
+            warnings.warn(
+                "NumpyArrayIterator is set to use the "
+                'data format convention "' + data_format + '" '
+                "(channels on axis " + str(channels_axis) + "), i.e. expected "
+                "either 1, 2, 3 or 4 channels on axis " + str(channels_axis) + ". "
+                "However, it was passed an array with shape "
+                + str(self.x.shape)
+                + " ("
+                + str(self.x.shape[channels_axis])
+                + " channels).",
+            )
         if y is not None:
             self.y = np.asarray(y)
         else:
@@ -782,10 +875,10 @@ class NumpyArrayIterator(Iterator):
         self.save_to_dir = save_to_dir
         self.save_prefix = save_prefix
         self.save_format = save_format
-        slices_per_volume = x.shape[3] # len(zaxis)
-        #print("x.shape: ", x.shape)
-        super(NumpyArrayIterator, self).__init__(
-            x.shape[0], batch_size, slices_per_volume, shuffle, seed)
+        slices_per_volume = x.shape[3]  # len(zaxis)
+        super().__init__(
+            x.shape[0], batch_size, slices_per_volume, shuffle, seed,
+        )
 
     def next(self):
         """For python 2.x.
@@ -795,40 +888,38 @@ class NumpyArrayIterator(Iterator):
         # Keeps under lock only the mechanism which advances
         # the indexing of each batch.
         with self.lock:
-            index_array, current_index, current_batch_size = next(
-                self.index_generator)
+            index_array, current_index, current_batch_size = next(self.index_generator)
         # The transformation of images is not under thread lock
         # so it can be done in parallel
 
         batch_x = np.zeros(
-            tuple([current_batch_size] + list(self.x.shape)[1:]), dtype=K.floatx())
-	
-        #print(index_array)
+            tuple([current_batch_size] + list(self.x.shape)[1:]), dtype=K.floatx(),
+        )
+
 
         # build batch of image data
-        seed_random = np.random.randint(0,2**8-1)
+        seed_random = np.random.randint(0, 2**8 - 1)
         # Loop through z-axis
         for s in range(self.slices_per_volume):
-            for i,j in enumerate(index_array):
-                x = self.x[j,:,:,s,:]
-                #print("j: ",j)
-                #print("self.x[j,:,:,s,:]:, ",x.shape)
-                x = self.image_data_generator.random_transform(x.astype(K.floatx()), seed=(j+1)*seed_random)
+            for i, j in enumerate(index_array):
+                x = self.x[j, :, :, s, :]
+                x = self.image_data_generator.random_transform(
+                    x.astype(K.floatx()), seed=(j + 1) * seed_random,
+                )
                 x = self.image_data_generator.standardize(x)
-               # x = self.image_data_generator.change_dims(x)  # my addition
-                batch_x[i,:,:,s,:] = x
+                batch_x[i, :, :, s, :] = x
 
         if self.save_to_dir:
             for i in range(current_batch_size):
                 img = array_to_img(batch_x[i], self.data_format, scale=True)
-                fname = '{prefix}_{index}_{hash}.{format}'.format(prefix=self.save_prefix,
-                                                                  index=current_index + i,
-                                                                  hash=np.random.randint(
-                                                                      1e4),
-                                                                  format=self.save_format)
+                fname = "{prefix}_{index}_{hash}.{format}".format(
+                    prefix=self.save_prefix,
+                    index=current_index + i,
+                    hash=np.random.randint(1e4),
+                    format=self.save_format,
+                )
                 img.save(os.path.join(self.save_to_dir, fname))
         if self.y is None:
             return batch_x
         batch_y = self.y[index_array]
         return batch_x, batch_y
-
