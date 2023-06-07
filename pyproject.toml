@@ -1,0 +1,58 @@
+[tool.poetry]
+name = "afids-cnn"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{include = "afids_cnn"}]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.11"
+numpy = ">=1.22,<1.24"
+tensorflow = "^2.12.0"
+keras = "^2.12.0"
+torch = ">=1.13.1,<3.0.0"
+snakebids = "^0.8.1"
+scikit-image = "^0.19.3"
+pandas = ">=1.3,<2"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+ruff = "^0.0.267"
+pyright = "^1.1.308"
+pandas-stubs = "^2.0.1.230501"
+snakefmt = "^0.8.4"
+notebook = "^6.5.4"
+
+[tool.poetry.scripts]
+auto_afids_cnn_apply = 'afids_cnn.apply:main'
+auto_afids_cnn_apply_bids = 'afids_cnn.apply_workflow.run:main'
+auto_afids_cnn_train = 'afids_cnn.train:main'
+auto_afids_cnn_train_bids = 'afids_cnn.train_workflow.run:main'
+
+[tool.ruff]
+select = ["ALL"]
+ignore = ["ANN101", "ANN102", "TCH", "T20", "INP001", "S603", "EXE002"]
+unfixable = ["F841"]
+builtins = ["snakemake"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportInconsistentConstructor = false
+reportMissingParameterType = false
+reportMissingTypeArgument = false
+reportMissingTypeStubs = false
+reportUnnecessaryTypeIgnoreComment = true
+reportUnknownArgumentType = false
+reportUnusedExpression = false
+reportUnknownLambdaType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUnknownVariableType = false
+reportUntypedBaseClass = false
+reportUnusedVariable = false
+reportPrivateUsage = false
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
