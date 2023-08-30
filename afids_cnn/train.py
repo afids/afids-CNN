@@ -106,24 +106,33 @@ def gen_model() -> keras.Model:
 
     return keras.Model(input_layer, x)
 
-
 def fit_model(
-    model: keras.Model,
-    new_train: Iterable[tuple[NDArray, NDArray]],
+    model: tf.keras.Model,
+    new_train: Iterable[Tuple[ndarray, ndarray]],
     model_out_path: os.PathLike[str] | str,
     loss_out_path: os.PathLike[str] | str | None,
+    epochs: int = 100,
+    steps_per_epoch: int = 50,
+    loss_fn: str = "mse",
+    optimizer: tf.optimizers.Optimizer = tf.keras.optimizers.Adam(),
+    metrics: list[tf.metrics.Metric] = [tf.keras.metrics.RootMeanSquaredError()],
+    validation_data: Iterable[Tuple[ndarray, ndarray]] | None = None
 ):
     model.compile(
-        loss=["mse"],
-        optimizer=keras.optimizers.Adam(),
-        metrics=[keras.metrics.RootMeanSquaredError()],
+        loss=[loss_fn],
+        optimizer=optimizer,
+        metrics=metrics,
     )
-    history = model.fit(new_train, epochs=100, steps_per_epoch=50)
+    history = model.fit(
+        new_train,
+        epochs=epochs,
+        steps_per_epoch=steps_per_epoch,
+        validation_data=validation_data
+    )
     model.save(model_out_path)
     if loss_out_path:
         pd.DataFrame(history.history).to_csv(loss_out_path)
     return history, model
-
 
 def gen_parser() -> ArgumentParser:
     parser = ArgumentParser()
