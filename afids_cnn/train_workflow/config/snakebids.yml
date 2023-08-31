@@ -89,6 +89,22 @@ parse_args:
   --radius:
     help: 'Radius of patches to use.'
     default: 31
+  --epochs:
+    help: 'Number of training epochs to use.'
+    default: 100
+  --steps_per_epoch:
+    help: 'Steps to use per training epoch.'
+    default: 50
+  --loss_fn:
+    help: 'Tensorflow loss function to use.'
+    default: 'mse'
+  --metrics:
+    help: 'List of tensorflow metrics to use.'
+    nargs: '*'
+    default: ['RootMeanSquaredError']
+  --validation_data_path:
+    help: 'Path to a set of validation patches.'
+
 
 #--- workflow specific configuration -- below is just an example:
 num_channels: 2
