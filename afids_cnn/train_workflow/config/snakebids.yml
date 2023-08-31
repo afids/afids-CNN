@@ -102,9 +102,6 @@ parse_args:
     help: 'List of tensorflow metrics to use.'
     nargs: '*'
     default: ['RootMeanSquaredError']
-  --validation_data_path:
-    help: 'Path to a set of validation patches.'
-
 
 #--- workflow specific configuration -- below is just an example:
 num_channels: 2

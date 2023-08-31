@@ -180,15 +180,12 @@ rule train_model:
         loss_fn=config["loss_fn"],
         optimizer=config["optimizer"],
         metrics=" ".join(config["metrics"]),
-        validation_arg=f"--validation_data_path {config['validation_data_path']}"
-        if config["validation_data_path"]
-        else "",
     shell:
         "auto_afids_cnn_train {params.num_channels} {wildcards.radius} "
         "{input.combined_patch} {output.model} --loss_out_path {output.history} "
         "--epochs {params.epochs} --steps_per_epoch {params.steps_per_epoch} "
         "--loss_fn {params.loss_fn} --optimizer {params.optimizer} "
-        "--metrics {params.metrics} {params.validation_arg}"
+        "--metrics {params.metrics}"
 
 
 rule all:
