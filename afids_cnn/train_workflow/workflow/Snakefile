@@ -175,9 +175,17 @@ rule train_model:
         ),
     params:
         num_channels=config["num_channels"],
+        epochs=config["epochs"],
+        steps_per_epoch=config["steps_per_epoch"],
+        loss_fn=config["loss_fn"],
+        optimizer=config["optimizer"],
+        metrics=" ".join(config["metrics"]),
     shell:
         "auto_afids_cnn_train {params.num_channels} {wildcards.radius} "
-        "{input.combined_patch} {output.model} --loss_out_path {output.history}"
+        "{input.combined_patch} {output.model} --loss_out_path {output.history} "
+        "--epochs {params.epochs} --steps_per_epoch {params.steps_per_epoch} "
+        "--loss_fn {params.loss_fn} --optimizer {params.optimizer} "
+        "--metrics {params.metrics}"
 
 
 rule all:
