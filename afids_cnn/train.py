@@ -122,7 +122,7 @@ def fit_model(
 ):
     if not optimizer:
         optimizer = keras.optimizers.Adam()
-    if metrics is None:
+    if not metrics:
         metrics = [keras.metrics.RootMeanSquaredError()]
     model.compile(
         loss=[loss_fn],
