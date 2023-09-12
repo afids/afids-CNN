@@ -6,7 +6,6 @@ from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 from numpy.typing import NDArray
 from tensorflow import keras
 
@@ -110,21 +109,21 @@ def gen_model() -> keras.Model:
 
 
 def fit_model(
-    model: tf.keras.Model,
+    model: keras.Model,
     new_train: Iterable[tuple[NDArray, NDArray]],
     model_out_path: os.PathLike[str] | str,
     loss_out_path: os.PathLike[str] | str | None,
     epochs: int = 100,
     steps_per_epoch: int = 50,
-    loss_fn: tf.losses.Loss | str = "mse",
-    optimizer: tf.optimizers.Optimizer | str | None = None,
-    metrics: list[tf.metrics.Metric | str] | None = None,
+    loss_fn: keras.losses.Loss | str = "mse",
+    optimizer: keras.optimizers.Optimizer | str | None = None,
+    metrics: list[keras.metrics.Metric | str] | None = None,
     validation_data: Iterable[tuple[NDArray, NDArray]] | None = None,
 ):
     if not optimizer:
-        optimizer = tf.keras.optimizers.Adam()
+        optimizer = keras.optimizers.Adam()
     if metrics is None:
-        metrics = [tf.keras.metrics.RootMeanSquaredError()]
+        metrics = [keras.metrics.RootMeanSquaredError()]
     model.compile(
         loss=[loss_fn],
         optimizer=optimizer,
