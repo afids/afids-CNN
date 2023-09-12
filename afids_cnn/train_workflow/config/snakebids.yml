@@ -102,6 +102,12 @@ parse_args:
     help: 'List of tensorflow metrics to use.'
     nargs: '*'
     default: ['RootMeanSquaredError']
+  --validation_steps: 
+    help: 'Total number of steps (batches of samples) to draw before stopping when performing validation at the end of every epoch.'
+    default: 50
+  --callbacks: 
+    help: '1 to use Early Stopping (patience = 100).' 
+    default: None 
 
 #--- workflow specific configuration -- below is just an example:
 num_channels: 2
