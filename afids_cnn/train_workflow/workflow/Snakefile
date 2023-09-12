@@ -73,7 +73,7 @@ rule gen_sphere:
 
 rule gen_prob:
     input:
-        t1w=inputs_raw["T1w"].path,
+        t1w=rules.gen_sphere.output.sphere,
     output:
         prob=bids(
             root=str(Path(config["output_dir"]) / "c3d"),
