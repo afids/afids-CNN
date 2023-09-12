@@ -11,6 +11,7 @@ from tensorflow import keras
 
 from afids_cnn.generator import customImageDataGenerator
 
+
 def gen_training_array(
     num_channels: int,
     dims: NDArray,
@@ -112,13 +113,28 @@ def fit_model(
     new_train: Iterable[tuple[NDArray, NDArray]],
     model_out_path: os.PathLike[str] | str,
     loss_out_path: os.PathLike[str] | str | None,
+    epochs: int = 100,
+    steps_per_epoch: int = 50,
+    loss_fn: keras.losses.Loss | str = "mse",
+    optimizer: keras.optimizers.Optimizer | str | None = None,
+    metrics: list[keras.metrics.Metric | str] | None = None,
+    validation_data: Iterable[tuple[NDArray, NDArray]] | None = None,
 ):
+    if not optimizer:
+        optimizer = keras.optimizers.Adam()
+    if not metrics:
+        metrics = [keras.metrics.RootMeanSquaredError()]
     model.compile(
-        loss=["mse"],
-        optimizer=keras.optimizers.Adam(),
-        metrics=[keras.metrics.RootMeanSquaredError()],
+        loss=[loss_fn],
+        optimizer=optimizer,
+        metrics=metrics,
     )
-    history = model.fit(new_train, epochs=100, steps_per_epoch=50)
+    history = model.fit(
+        new_train,
+        epochs=epochs,
+        steps_per_epoch=steps_per_epoch,
+        validation_data=validation_data,
+    )
     model.save(model_out_path)
     if loss_out_path:
         pd.DataFrame(history.history).to_csv(loss_out_path)
@@ -132,6 +148,12 @@ def gen_parser() -> ArgumentParser:
     parser.add_argument("patches_path")
     parser.add_argument("model_out_path")
     parser.add_argument("--loss_out_path")
+    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--steps_per_epoch", type=int, default=50)
+    parser.add_argument("--loss_fn", default="mse")
+    parser.add_argument("--optimizer", default="adam")
+    parser.add_argument("--metrics", nargs="*", default=["RootMeanSquaredError"])
+    parser.add_argument("--validation_data_path")
     return parser
 
 
@@ -146,7 +168,30 @@ def main():
         ),
         batch_size=10,
     )
-    fit_model(model, new_train, args.model_out_path, args.loss_out_path)
+    validation_data = (
+        create_generator(
+            gen_training_array(
+                args.num_channels,
+                np.array([(args.radius * 2) + 1 for _ in range(3)]),
+                args.validation_data_path,
+            ),
+            batch_size=10,
+        )
+        if args.validation_data_path
+        else None
+    )
+    fit_model(
+        model,
+        new_train,
+        args.model_out_path,
+        args.loss_out_path,
+        epochs=args.epochs,
+        steps_per_epoch=args.steps_per_epoch,
+        loss_fn=args.loss_fn,
+        optimizer=args.optimizer,
+        metrics=args.metrics,
+        validation_data=validation_data,
+    )
 
 
 if __name__ == "__main__":
