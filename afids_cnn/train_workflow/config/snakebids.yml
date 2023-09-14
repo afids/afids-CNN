@@ -22,16 +22,17 @@ pybids_inputs:
     filters:
       suffix: T1w
       extension: .nii.gz
-      #      datatype: anat
-      space: MNI152NLin2009cAsym
+      datatype: anat
+      space: [MNI152NLin2009cAsym, False]
     wildcards: [subject, session, acquisition]
 pybids_inputs_afids:
   afids:
     filters:
       suffix: afids
       extension: .fcsv
-      space: MNI152NLin2009cAsym
-      datatype: false
+      space: [MNI152NLin2009cAsym, T1w, False]
+      desc: [groundtruth, False]
+      datatype: [anat, false]
     wildcards:
       - subject
       - session
@@ -77,6 +78,10 @@ parse_args:
   --afids_dir:
     help: 'Path to a BIDS dataset with AFIDs placements corresponding to bids_dir.'
     required: True
+  --validation_bids_dir:
+    help: 'Path to a validation BIDS dataset.'
+  --validation_afids_dir:
+    help: 'Path to a BIDS dataset with AFIDs placements corresponding to validation_bids_dir'
   --frequency:
     help: 'Augmentation frequency in voxels.'
     default: 1000
@@ -102,6 +107,9 @@ parse_args:
     help: 'List of tensorflow metrics to use.'
     nargs: '*'
     default: ['RootMeanSquaredError']
+  --optimizer:
+    help: 'Optimizer to use.'
+    default: 'adam'
   --validation_steps: 
     help: 'Total number of steps (batches of samples) to draw before stopping when performing validation at the end of every epoch.'
     default: 50

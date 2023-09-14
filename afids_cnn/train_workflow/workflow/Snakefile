@@ -25,6 +25,61 @@ inputs_afids = generate_inputs(
     participant_label=config.get("participant_label", None),
     exclude_participant_label=config.get("exclude_participant_label", None),
 )
+if any([config["validation_bids_dir"], config["validation_afids_dir"]]) and not all(
+    [config["validation_bids_dir"], config["validation_afids_dir"]]
+):
+    raise ValueError(
+        "If a validation bids directory is defined, the corresponding validation afids "
+        "directory must be defined."
+    )
+inputs_raw_validation = (
+    generate_inputs(
+        bids_dir=config["validation_bids_dir"],
+        pybids_inputs=config["pybids_inputs"],
+        pybids_database_dir=config.get("pybids_db_dir"),
+        pybids_reset_database=config.get("pybids_db_reset"),
+        derivatives=config.get("derivatives", None),
+    )
+    if config["validation_bids_dir"]
+    else None
+)
+inputs_afids_validation = (
+    generate_inputs(
+        bids_dir=config["validation_afids_dir"],
+        pybids_inputs=config["pybids_inputs_afids"],
+        pybids_database_dir=config.get("pybids_db_dir"),
+        pybids_reset_database=config.get("pybids_db_reset"),
+        derivatives=config.get("derivatives", None),
+    )
+    if config["validation_afids_dir"]
+    else None
+)
+
+
+def subject_in_path(subject_id, root_path):
+    return f"sub-{subject_id}" in {
+        path.name for path in Path(root_path).iterdir() if path.is_dir()
+    }
+
+
+def choose_correct_raw_dataset(wildcards):
+    if not inputs_raw_validation:
+        return inputs_raw
+    if subject_in_path(wildcards["subject"], config["bids_dir"]):
+        return inputs_raw
+    if subject_in_path(wildcards["subject"], config["validation_bids_dir"]):
+        return inputs_raw_validation
+    raise ValueError(f"Raw dataset for sub-{wildcards['subject']} not found.")
+
+
+def choose_correct_afids_dataset(wildcards):
+    if not inputs_afids_validation:
+        return inputs_afids
+    if subject_in_path(wildcards["subject"], config["bids_dir"]):
+        return inputs_afids
+    if subject_in_path(wildcards["subject"], config["validation_bids_dir"]):
+        return inputs_afids_validation
+    raise ValueError(f"AFIDs dataset for sub-{wildcards['subject']} not found.")
 
 
 # this adds constraints to the bids naming
@@ -37,7 +92,7 @@ wildcard_constraints:
 
 rule extract_afid:
     input:
-        fcsv=inputs_afids["afids"].path,
+        fcsv=lambda wildcards: choose_correct_afids_dataset(wildcards)["afids"].path,
     output:
         txt=bids(
             root=str(Path(config["output_dir"]) / "c3d"),
@@ -52,12 +107,12 @@ rule extract_afid:
             **inputs_raw["T1w"].wildcards
         ),
     script:
-        './scripts/extract_afids.py"'
+        './scripts/extract_afids.py'
 
 
 rule gen_sphere:
     input:
-        t1w=inputs_raw["T1w"].path,
+        t1w=lambda wildcards: choose_correct_raw_dataset(wildcards)["T1w"].path,
         txt=rules.extract_afid.output.txt,
     output:
         sphere=bids(
@@ -118,7 +173,7 @@ rule gen_mask:
 
 rule gen_patches:
     input:
-        t1w=inputs_raw["T1w"].path,
+        t1w=lambda wildcards: choose_correct_raw_dataset(wildcards)["T1w"].path,
         prob=rules.gen_prob.output.prob,
         mask=rules.gen_mask.output.bin,
     output:
@@ -157,9 +212,29 @@ rule cat_patches:
         "cat {input.patch} > {output.combined_patch}"
 
 
+rule cat_patches_validation:
+    input:
+        patch=inputs_raw_validation["T1w"].expand(
+            rules.gen_patches.output.patch, allow_missing=True
+        ) if inputs_raw_validation else [],
+    output:
+        combined_patch=protected(
+            bids(
+                root=str(Path(config["output_dir"]) / "c3d"),
+                desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
+                suffix="afid-{afid}_allvalidationpatches.dat",
+            )
+        ),
+    shell:
+        "cat {input.patch} > {output.combined_patch}"
+
+
 rule train_model:
     input:
         combined_patch=rules.cat_patches.output.combined_patch,
+        combined_patch_validation=rules.cat_patches_validation.output.combined_patch
+        if inputs_raw_validation
+        else [],
     output:
         model=directory(
             bids(
@@ -181,6 +256,7 @@ rule train_model:
         optimizer=config["optimizer"],
         metrics=" ".join(config["metrics"]),
         validation_steps=config["validation_steps"],
+        validation_arg="--validation_patches_path" if inputs_raw_validation else "",
         do_early_stopping="--do_early_stopping" if config["do_early_stopping"] else "",
     shell:
         "auto_afids_cnn_train {params.num_channels} {wildcards.radius} "
@@ -188,7 +264,8 @@ rule train_model:
         "--epochs {params.epochs} --steps_per_epoch {params.steps_per_epoch} "
         "--loss_fn {params.loss_fn} --optimizer {params.optimizer} "
         "--metrics {params.metrics} --validation_steps {params.validation_steps} "
-        "{params.do_early_stopping}"
+        "{params.do_early_stopping} "
+        "{params.validation_arg} {input.combined_patch_validation} "
 
 
 rule all:

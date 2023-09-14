@@ -1,14 +1,10 @@
 """Extract one afid from an FCSV."""
 
-from __future__ import annotations
-
-from os import PathLike
-
 import numpy as np
 import pandas as pd
 
 
-def extract_afid(fcsv: pd.DataFrame, afid_label: int, out_path: PathLike[str] | str):
+def extract_afid(fcsv: pd.DataFrame, afid_label, out_path):
     """Select an AFID from an FCSV dataframe and save its values to a text file.
 
     Parameters
@@ -27,4 +23,8 @@ def extract_afid(fcsv: pd.DataFrame, afid_label: int, out_path: PathLike[str] | 
 def main() -> None:
     fcsv_df = pd.read_csv(snakemake.input.fcsv, sep=",", header=2)
     afid_label = int(snakemake.wildcards.afid)
-    extract_afid(fcsv_df, afid_label, snakemake.out.txt)
+    extract_afid(fcsv_df, afid_label, snakemake.output.txt)
+
+
+if __name__ == "__main__":
+    main()

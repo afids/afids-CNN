@@ -153,12 +153,12 @@ def gen_parser() -> ArgumentParser:
     parser.add_argument("patches_path")
     parser.add_argument("model_out_path")
     parser.add_argument("--loss_out_path")
+    parser.add_argument("--validation_patches_path")
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--steps_per_epoch", type=int, default=50)
     parser.add_argument("--loss_fn", default="mse")
     parser.add_argument("--optimizer", default="adam")
     parser.add_argument("--metrics", nargs="*", default=["RootMeanSquaredError"])
-    parser.add_argument("--validation_data_path")
     parser.add_argument("--validation_steps", type=int, default=50)
     parser.add_argument("--do_early_stopping", action="store_true")
     return parser
@@ -180,11 +180,11 @@ def main():
             gen_training_array(
                 args.num_channels,
                 np.array([(args.radius * 2) + 1 for _ in range(3)]),
-                args.validation_data_path,
+                args.validation_patches_path,
             ),
             batch_size=10,
         )
-        if args.validation_data_path
+        if args.validation_patches_path
         else None
     )
 
