@@ -119,11 +119,14 @@ def fit_model(
     optimizer: keras.optimizers.Optimizer | str | None = None,
     metrics: list[keras.metrics.Metric | str] | None = None,
     validation_data: Iterable[tuple[NDArray, NDArray]] | None = None,
+    validation_steps: int = 50,
+    callbacks: Iterable[keras.callbacks.Callback] | None = None,
 ):
     if not optimizer:
         optimizer = keras.optimizers.Adam()
     if not metrics:
         metrics = [keras.metrics.RootMeanSquaredError()]
+
     model.compile(
         loss=[loss_fn],
         optimizer=optimizer,
@@ -134,6 +137,8 @@ def fit_model(
         epochs=epochs,
         steps_per_epoch=steps_per_epoch,
         validation_data=validation_data,
+        validation_steps=validation_steps,
+        callbacks=callbacks,
     )
     model.save(model_out_path)
     if loss_out_path:
@@ -148,12 +153,14 @@ def gen_parser() -> ArgumentParser:
     parser.add_argument("patches_path")
     parser.add_argument("model_out_path")
     parser.add_argument("--loss_out_path")
+    parser.add_argument("--validation_patches_path")
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--steps_per_epoch", type=int, default=50)
     parser.add_argument("--loss_fn", default="mse")
     parser.add_argument("--optimizer", default="adam")
     parser.add_argument("--metrics", nargs="*", default=["RootMeanSquaredError"])
-    parser.add_argument("--validation_data_path")
+    parser.add_argument("--validation_steps", type=int, default=50)
+    parser.add_argument("--do_early_stopping", action="store_true")
     return parser
 
 
@@ -173,11 +180,17 @@ def main():
             gen_training_array(
                 args.num_channels,
                 np.array([(args.radius * 2) + 1 for _ in range(3)]),
-                args.validation_data_path,
+                args.validation_patches_path,
             ),
             batch_size=10,
         )
-        if args.validation_data_path
+        if args.validation_patches_path
+        else None
+    )
+
+    callbacks = (
+        [keras.callbacks.EarlyStopping(monitor="val_loss", patience=100)]
+        if args.do_early_stopping
         else None
     )
     fit_model(
@@ -191,6 +204,8 @@ def main():
         optimizer=args.optimizer,
         metrics=args.metrics,
         validation_data=validation_data,
+        validation_steps=args.validation_steps,
+        callbacks=callbacks,
     )
 
 
