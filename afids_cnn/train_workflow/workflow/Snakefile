@@ -180,8 +180,8 @@ rule train_model:
         loss_fn=config["loss_fn"],
         optimizer=config["optimizer"],
         metrics=" ".join(config["metrics"]),
-        validation_steps=config["validation_steps"]
-        do_early_stopping="--do_early_stopping" if config["do_early_stopping"] else ""
+        validation_steps=config["validation_steps"],
+        do_early_stopping="--do_early_stopping" if config["do_early_stopping"] else "",
     shell:
         "auto_afids_cnn_train {params.num_channels} {wildcards.radius} "
         "{input.combined_patch} {output.model} --loss_out_path {output.history} "
