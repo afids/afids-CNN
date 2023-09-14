@@ -120,17 +120,13 @@ def fit_model(
     metrics: list[keras.metrics.Metric | str] | None = None,
     validation_data: Iterable[tuple[NDArray, NDArray]] | None = None,
     validation_steps: int = 50,
-    callbacks: int = 0 | None = None,
+    callbacks: Iterable[keras.callbacks.Callback] | None = None,
 ):
     if not optimizer:
         optimizer = keras.optimizers.Adam()
     if not metrics:
         metrics = [keras.metrics.RootMeanSquaredError()]
-    if callbacks == 1: 
-        callbacks = [keras.callbacks.EarlyStopping(monitor='val_loss',patience=100)]
-    else: 
-        callbacks = None
-        
+
     model.compile(
         loss=[loss_fn],
         optimizer=optimizer,
@@ -142,7 +138,7 @@ def fit_model(
         steps_per_epoch=steps_per_epoch,
         validation_data=validation_data,
         validation_steps=validation_steps,
-        callbacks=[callbacks],
+        callbacks=callbacks,
     )
     model.save(model_out_path)
     if loss_out_path:
@@ -163,8 +159,8 @@ def gen_parser() -> ArgumentParser:
     parser.add_argument("--optimizer", default="adam")
     parser.add_argument("--metrics", nargs="*", default=["RootMeanSquaredError"])
     parser.add_argument("--validation_data_path")
-    parser.add_argument("--validation_steps", type=int,default=50)
-    parser.add_argument("--callbacks",default=None)
+    parser.add_argument("--validation_steps", type=int, default=50)
+    parser.add_argument("--do_early_stopping", action="store_true")
     return parser
 
 
@@ -191,6 +187,12 @@ def main():
         if args.validation_data_path
         else None
     )
+
+    callbacks = (
+        [keras.callbacks.EarlyStopping(monitor="val_loss", patience=100)]
+        if args.do_early_stopping
+        else None
+    )
     fit_model(
         model,
         new_train,
@@ -202,9 +204,8 @@ def main():
         optimizer=args.optimizer,
         metrics=args.metrics,
         validation_data=validation_data,
-        validation_steps=args.validation_steps, 
-        callbacks=args.callbacks,
-        
+        validation_steps=args.validation_steps,
+        callbacks=callbacks,
     )
 
 
