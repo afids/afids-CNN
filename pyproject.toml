@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "afids-cnn"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 packages = [{include = "afids_cnn"}]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8,<3.12"
 numpy = ">=1.22,<1.24"
 tensorflow = "^2.12.0"
 keras = "^2.12.0"

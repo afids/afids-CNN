@@ -2315,6 +2315,7 @@ files = [
 numpy = [
     {version = ">=1.20.3", markers = "python_version < \"3.10\""},
     {version = ">=1.21.0", markers = "python_version >= \"3.10\""},
+    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
 ]
 python-dateutil = ">=2.8.1"
 pytz = ">=2020.1"
@@ -3679,13 +3680,22 @@ cached-property = ">=1.5.2,<2.0.0"
 cookiecutter = ">=2.1.1,<3.0.0"
 importlib-resources = ">=5.12.0,<6.0.0"
 more-itertools = ">=8,<10"
-numpy = {version = ">=1.21.2", markers = "python_version == \"3.10\""}
-pandas = {version = ">=1.3", markers = "python_full_version >= \"3.7.1\""}
+numpy = [
+    {version = ">=1.21.2", markers = "python_version == \"3.10\""},
+    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
+]
+pandas = [
+    {version = ">=1.3", markers = "python_full_version >= \"3.7.1\""},
+    {version = ">=1.5", markers = "python_version >= \"3.11\""},
+]
 pvandyken-deprecated = "0.0.3"
 pybids = {version = ">=0.16.0,<0.17.0", markers = "python_version >= \"3.8\""}
 PyYAML = ">=6,<7"
 scipy = {version = ">=1.9.2", markers = "python_version >= \"3.8\""}
-snakemake = {version = ">=5.28.0", markers = "python_version >= \"3.7\""}
+snakemake = [
+    {version = ">=5.28.0", markers = "python_version >= \"3.7\""},
+    {version = ">=7.18.2", markers = "python_version >= \"3.11\""},
+]
 typing-extensions = ">=3.10.0"
 
 [[package]]
@@ -4544,5 +4554,5 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 
 [metadata]
 lock-version = "2.0"
-python-versions = ">=3.8,<3.11"
-content-hash = "86659f8546c644ea3da83fc1004b9ee3e78d6e8e3e0667c58ecf6927e857019c"
+python-versions = ">=3.8,<3.12"
+content-hash = "5111c273f8730ef2fd307751f014b30ca41756b5ad26e58579baaa1668d6861a"
