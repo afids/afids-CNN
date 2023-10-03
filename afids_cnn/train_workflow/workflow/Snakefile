@@ -21,6 +21,7 @@ inputs_afids = generate_inputs(
     pybids_inputs=config["pybids_inputs_afids"],
     pybids_database_dir=config.get("pybids_db_dir"),
     pybids_reset_database=config.get("pybids_db_reset"),
+    pybids_config=['bids', 'derivatives'],  # Need to allow desc etc.
     derivatives=config.get("derivatives", None),
     participant_label=config.get("participant_label", None),
     exclude_participant_label=config.get("exclude_participant_label", None),
@@ -49,6 +50,7 @@ inputs_afids_validation = (
         pybids_inputs=config["pybids_inputs_afids"],
         pybids_database_dir=config.get("pybids_db_dir"),
         pybids_reset_database=config.get("pybids_db_reset"),
+        pybids_config=['bids', 'derivatives'],  # Need to allow desc etc.
         derivatives=config.get("derivatives", None),
     )
     if config["validation_afids_dir"]
