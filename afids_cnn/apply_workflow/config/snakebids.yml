@@ -63,6 +63,7 @@ parse_args:
   --model:
     help: 'Path to the model to apply.'
     required: true
+    type: Path
 
  # custom command-line parameters can then be added, these will get added to the config
 
