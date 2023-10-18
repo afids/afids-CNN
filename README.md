@@ -1,21 +1,16 @@
-# afids-NN
-Utilizing the anatomical fiducals framework to identify other salient brain regions and automatic localization of anatomical fiducials using neural networks
+# afids-CNN
+Leveraging the recent release of the anatomical fiducial framework for developing an open software infrastructure to solve the landmark regression problem on 3D MRI images
 
+## Processing imaging data for training 
+1 - skull stripping
+2 - conforming image 
+3 - intensity normalization (i.e., WM to 110)
 
-# Processing data for training 
+## Processing landmark data (AFIDs)
+1 - extract points from landmark file (.fcsv is supported)
+2 - extact a landmark Euclidean distance map (could be considered probability map; each voxel communicates the distance to a AFID of interest) 
 
-Convert3D
-
-## Anatomical landmark data (AFIDs)
-
-Convert3D:
-1) .fcsv -> threshold image -> landmark distance map (could be considered probability map) 
-2) distance map used for training 
-
-## Structural T1w imaging 
-
-Convert3D: 
-1) brainmask.nii -> 3D patches sampled at x voxels 
-2) matching of distance maps and anatomical imaging patches is crucial for proper training 
+## Machine learning 
+1 - a standard 3D Unet
 
 
