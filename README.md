@@ -5,7 +5,7 @@ Leveraging the recent release of the anatomical fiducial framework for developin
 1- install poetry and configure cache directory
 2- poetry install and shell to activate environment 
 
-## Processing imaging data for training can be found in the following repo (
+## Processing imaging data for training can be found in the following repo (https://github.com/afids/autoafids_prep)
 1 - rigid registraion to MNI template 
 2 - conforming image to 1mm iso res
 3 - intensity normalization (i.e., WM to 110) followed by minmax norm
