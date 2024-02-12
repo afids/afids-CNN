@@ -121,13 +121,13 @@ def process_distances(
     slices = gen_patch_slices(mni_fid, radius)
     new_pred[slices[0], slices[1], slices[2]] = arr_dis
     transformed = np.exp(-0.5 * new_pred)
-    thresh = np.percentile(transformed, 99.999)
+    thresh = np.percentile(transformed, 99)
     thresholded = transformed
     thresholded[thresholded < thresh] = 0
-    thresholded = (thresholded * 1000).astype(int)
+    thresholded = (thresholded * 1000000).astype(int)
     new = skimage.measure.regionprops(thresholded)
     if not new:
-        logger.warning("No centroid found for this afid. Results will be suspect.")
+        logger.warning("No centroid found for this afid. Results may be suspect.")
         return np.array(
             np.unravel_index(
                 np.argmax(transformed, axis=None),
@@ -157,19 +157,21 @@ def apply_model(
         resample_size=1,
         padding=0,
     )
-    normalized = min_max_normalize(img.get_fdata())
+    img_data = img.get_fdata()
     distances = predict_distances(
         radius,
         model,
         mni_fid_resampled,
-        normalized,
+        img_data,
     )
     fid_resampled = process_distances(
         distances,
-        normalized,
+        img_data,
         mni_fid_resampled,
         radius,
     )
+    print(f'coods predicted:{fid_resampled}')
+    print(f'coods predicted:{fid_voxel2world(fid_resampled, img.affine)}')
     return fid_voxel2world(fid_resampled, img.affine)
 
 

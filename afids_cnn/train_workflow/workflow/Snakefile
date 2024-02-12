@@ -250,6 +250,7 @@ rule train_model:
             desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
             suffix="afid-{afid}_loss.csv",
         ),
+
     params:
         num_channels=config["num_channels"],
         epochs=config["epochs"],
