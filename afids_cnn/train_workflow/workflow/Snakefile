@@ -21,10 +21,67 @@ inputs_afids = generate_inputs(
     pybids_inputs=config["pybids_inputs_afids"],
     pybids_database_dir=config.get("pybids_db_dir"),
     pybids_reset_database=config.get("pybids_db_reset"),
+    pybids_config=["bids", "derivatives"],  # Need to allow desc etc.
     derivatives=config.get("derivatives", None),
     participant_label=config.get("participant_label", None),
     exclude_participant_label=config.get("exclude_participant_label", None),
 )
+if any([config["validation_bids_dir"], config["validation_afids_dir"]]) and not all(
+    [config["validation_bids_dir"], config["validation_afids_dir"]]
+):
+    raise ValueError(
+        "If a validation bids directory is defined, the corresponding validation afids "
+        "directory must be defined."
+    )
+inputs_raw_validation = (
+    generate_inputs(
+        bids_dir=config["validation_bids_dir"],
+        pybids_inputs=config["pybids_inputs"],
+        pybids_database_dir=config.get("pybids_db_dir"),
+        pybids_reset_database=config.get("pybids_db_reset"),
+        derivatives=config.get("derivatives", None),
+    )
+    if config["validation_bids_dir"]
+    else None
+)
+inputs_afids_validation = (
+    generate_inputs(
+        bids_dir=config["validation_afids_dir"],
+        pybids_inputs=config["pybids_inputs_afids"],
+        pybids_database_dir=config.get("pybids_db_dir"),
+        pybids_reset_database=config.get("pybids_db_reset"),
+        pybids_config=["bids", "derivatives"],  # Need to allow desc etc.
+        derivatives=config.get("derivatives", None),
+    )
+    if config["validation_afids_dir"]
+    else None
+)
+
+
+def subject_in_path(subject_id, root_path):
+    return f"sub-{subject_id}" in {
+        path.name for path in Path(root_path).iterdir() if path.is_dir()
+    }
+
+
+def choose_correct_raw_dataset(wildcards):
+    if not inputs_raw_validation:
+        return inputs_raw
+    if subject_in_path(wildcards["subject"], config["bids_dir"]):
+        return inputs_raw
+    if subject_in_path(wildcards["subject"], config["validation_bids_dir"]):
+        return inputs_raw_validation
+    raise ValueError(f"Raw dataset for sub-{wildcards['subject']} not found.")
+
+
+def choose_correct_afids_dataset(wildcards):
+    if not inputs_afids_validation:
+        return inputs_afids
+    if subject_in_path(wildcards["subject"], config["bids_dir"]):
+        return inputs_afids
+    if subject_in_path(wildcards["subject"], config["validation_bids_dir"]):
+        return inputs_afids_validation
+    raise ValueError(f"AFIDs dataset for sub-{wildcards['subject']} not found.")
 
 
 # this adds constraints to the bids naming
@@ -52,7 +109,7 @@ rule extract_afid:
             **inputs_raw["T1w"].wildcards
         ),
     script:
-        './scripts/extract_afids.py"'
+        "./scripts/extract_afids.py"
 
 
 rule gen_sphere:
@@ -141,9 +198,31 @@ rule cat_patches:
             rules.gen_patches.output.patch, allow_missing=True
         ),
     output:
-        combined_patch=bids(
-            root=str(Path(config["output_dir"]) / "c3d"),
-            suffix="all_patches_{afid}_train_all.dat",
+        combined_patch=protected(
+            bids(
+                root=str(Path(config["output_dir"]) / "c3d"),
+                desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
+                suffix="afid-{afid}_allpatches.dat",
+            )
+        ),
+    shell:
+        "cat {input.patch} > {output.combined_patch}"
+
+
+rule cat_patches_validation:
+    input:
+        patch=inputs_raw_validation["T1w"].expand(
+            rules.gen_patches.output.patch, allow_missing=True
+        )
+        if inputs_raw_validation
+        else [],
+    output:
+        combined_patch=protected(
+            bids(
+                root=str(Path(config["output_dir"]) / "c3d"),
+                desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
+                suffix="afid-{afid}_allvalidationpatches.dat",
+            )
         ),
     shell:
         "cat {input.patch} > {output.combined_patch}"
