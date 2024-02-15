@@ -12,8 +12,6 @@ from keras.layers import BatchNormalization, LeakyReLU
 
 from afids_cnn.generator import customImageDataGenerator
 
-from afids_cnn.generator import customImageDataGenerator
-
 def gen_training_array(
     num_channels: int,
     dims: NDArray,
