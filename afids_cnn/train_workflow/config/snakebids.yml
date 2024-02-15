@@ -22,7 +22,6 @@ pybids_inputs:
     filters:
       suffix: T1w
       extension: .nii.gz
-<<<<<<< HEAD
       datatype: anat
       space: [MNI152NLin2009cAsym, False]
     wildcards: [subject, session, acquisition]
@@ -38,11 +37,6 @@ pybids_inputs_afids:
       - subject
       - session
       - description
-=======
-      #      datatype: anat
-      space: MNI152NLin2009cAsym
-    wildcards: [subject, session, acquisition]
->>>>>>> f49457b... Rearrange project
 # this configures the options to save the BIDSLayout
 # by default, database is not saved (uncomment to save)
 # NOTE: pybids_db_dir must be an absolute path
@@ -78,7 +72,6 @@ parse_args:
       derivatives datasets (default: %(default)s) '
     default: false
     nargs: +
-<<<<<<< HEAD
 
  # custom command-line parameters can then be added, these will get added to the config
 
@@ -129,15 +122,3 @@ num_channels: 2
 
 containers:
   c3d: docker://khanlab/neuroglia-core:v1.5
-=======
-  --model:
-    help: 'Path to the model to apply.'
-    required: true
-    type: Path
-
- # custom command-line parameters can then be added, these will get added to the config
-
-
-#--- workflow specific configuration -- below is just an example:
-
->>>>>>> f49457b... Rearrange project
