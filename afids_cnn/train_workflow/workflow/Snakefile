@@ -94,7 +94,7 @@ wildcard_constraints:
 
 rule extract_afid:
     input:
-        fcsv=inputs_afids["afids"].path,
+        fcsv=lambda wildcards: choose_correct_afids_dataset(wildcards)["afids"].path,
     output:
         txt=bids(
             root=str(Path(config["output_dir"]) / "c3d"),
@@ -120,7 +120,7 @@ rule extract_afid:
 
 rule gen_sphere:
     input:
-        t1w=inputs_raw["T1w"].path,
+        t1w=lambda wildcards: choose_correct_raw_dataset(wildcards)["T1w"].path,
         txt=rules.extract_afid.output.txt,
     output:
         sphere=bids(
@@ -142,7 +142,7 @@ rule gen_sphere:
 
 rule gen_prob:
     input:
-        t1w=inputs_raw["T1w"].path,
+        sphere=rules.gen_sphere.output.sphere
     output:
         prob=bids(
             root=str(Path(config["output_dir"]) / "c3d"),
@@ -158,7 +158,7 @@ rule gen_prob:
     group: 
         "pre-train"
     shell:
-        "c3d {input.t1w} -sdt -o {output.prob}"
+        "c3d {input.sphere} -sdt -o {output.prob}"
 
 
 rule gen_norm:
@@ -205,20 +205,19 @@ rule gen_mask:
 
 rule gen_patches:
     input:
-        t1w=inputs_raw["T1w"].path,
+        t1w=lambda wildcards: choose_correct_raw_dataset(wildcards)["T1w"].path,
         prob=rules.gen_prob.output.prob,
         mask=rules.gen_mask.output.bin,
     output:
-        patch=bids(
-            root=str(Path(config["output_dir"]) / "c3d"),
-            suffix="patch_afid-{afid}_31_afids_all.dat",
-            **inputs_raw["T1w"].wildcards
+        patch=temp(
+            bids(
+                root=str(Path(config["output_dir"]) / "c3d"),
+                desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
+                suffix="afid-{afid}_patch.dat",
+                **inputs_raw["T1w"].wildcards
+            )
         ),
     params:
-        num_augment=config["num_augment"],
-        angle_stdev=config["angle_stdev"],
-        radius_arg=config["radius_arg"],
-        frequency=config["frequency"],
         radius_arg=lambda wildcards: "x".join([wildcards["radius"] for _ in range(3)]),
     container:
         config["containers"]["c3d"]
@@ -230,8 +229,8 @@ rule gen_patches:
         "pre-train"
     shell:
         "c3d {input.t1w} {input.prob} {input.mask} "
-        "-xpa {params.num_augment} {params.angle_stdev} "
-        "-xp {output.patch} {params.radius_arg} {params.frequency}"
+        "-xpa {wildcards.num_augment} {wildcards.angle_stdev} "
+        "-xp {output.patch} {params.radius_arg} {wildcards.frequency}"
 
 
 rule cat_patches:
@@ -261,9 +260,7 @@ rule cat_patches_validation:
     input:
         patch=inputs_raw_validation["T1w"].expand(
             rules.gen_patches.output.patch, allow_missing=True
-        )
-        if inputs_raw_validation
-        else [],
+        ) if inputs_raw_validation else [],
     output:
         combined_patch=protected(
             bids(
@@ -285,18 +282,24 @@ rule cat_patches_validation:
 rule train_model:
     input:
         combined_patch=rules.cat_patches.output.combined_patch,
+        combined_patch_validation=rules.cat_patches_validation.output.combined_patch
+        if inputs_raw_validation
+        else [],
     output:
-        model=bids(
-            root=str(Path(config["output_dir"]) / "afids-cnn-train"),
-            suffix="afid-{afid}_cnn.model",
+        model=directory(
+            bids(
+                root=str(Path(config["output_dir"]) / "afids-cnn-train"),
+                desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
+                suffix="afid-{afid}_cnn.model",
+            )
         ),
         history=bids(
             root=str(Path(config["output_dir"]) / "afids-cnn-train"),
+            desc="num{num_augment}angle{angle_stdev}radius{radius}freq{frequency}",
             suffix="afid-{afid}_loss.csv",
         ),
     params:
         num_channels=config["num_channels"],
-        dims=config["dims"],
         epochs=config["epochs"],
         steps_per_epoch=config["steps_per_epoch"],
         loss_fn=config["loss_fn"],
@@ -313,14 +316,35 @@ rule train_model:
     group:
         "train"
     shell:
-        "auto_afids_cnn_train {params.num_channels} {params.dims} {input.combined_patch} "
-        "{output.model} --loss_out_path {output.history}"
+        "auto_afids_cnn_train {params.num_channels} {wildcards.radius} "
+        "{input.combined_patch} {output.model} --loss_out_path {output.history} "
+        "--epochs {params.epochs} --steps_per_epoch {params.steps_per_epoch} "
+        "--loss_fn {params.loss_fn} --optimizer {params.optimizer} "
+        "--metrics {params.metrics} --validation_steps {params.validation_steps} "
+        "{params.do_early_stopping} "
+        "{params.validation_arg} {input.combined_patch_validation} "
 
 
 rule all:
     input:
-        expand(
+        models=expand(
             rules.train_model.output.model,
-            afid=[1],#range(32),
+            afid=[f"{afid:02}" for afid in range(1, 33)],
+            num_augment=config["num_augment"],
+            angle_stdev=config["angle_stdev"],
+            radius=config["radius"],
+            frequency=config["frequency"],
         ),
+    output:
+        combined_model=bids(
+            root=str(Path(config["output_dir"]) / "afids-cnn-model"),
+            suffix="model-combined.afidsmodel",
+        ),
+    params:
+        radius=config["radius"],
+    resources:
+        script=str(Path(workflow.basedir) / "scripts" / "assemble_models.py"),
     default_target: True
+    shell:
+        "python3 {resources.script} {input.models} {params.radius} "
+        "{output.combined_model}"
