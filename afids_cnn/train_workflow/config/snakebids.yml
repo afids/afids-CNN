@@ -78,10 +78,13 @@ parse_args:
   --afids_dir:
     help: 'Path to a BIDS dataset with AFIDs placements corresponding to bids_dir.'
     required: True
+  --afids_num:
+    help: 'AFID(s) to train. If not specified, will train on all AFIDs.'
+    nargs: '*'
   --validation_bids_dir:
     help: 'Path to a validation BIDS dataset.'
   --validation_afids_dir:
-    help: 'Path to a BIDS dataset with AFIDs placements corresponding to validation_bids_dir'
+    help: 'Path to a BIDS dataset with AFIDs placements corresponding to validation_bids_dir.'
   --frequency:
     help: 'Augmentation frequency in voxels.'
     default: 1000

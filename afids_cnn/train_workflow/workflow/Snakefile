@@ -270,12 +270,15 @@ rule train_model:
         "{params.do_early_stopping} "
         "{params.validation_arg} {input.combined_patch_validation} "
 
-
 rule all:
     input:
         models=expand(
             rules.train_model.output.model,
-            afid=[f"{afid:02}" for afid in range(1, 33)],
+            afid=[
+                f"{afid:02}" for afid in (
+                    list(map(int, config["afids_num"])) if config["afids_num"] else range(1, 33)
+                )
+            ],
             num_augment=config["num_augment"],
             angle_stdev=config["angle_stdev"],
             radius=config["radius"],
