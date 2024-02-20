@@ -23,14 +23,13 @@ pybids_inputs:
       suffix: T1w
       extension: .nii.gz
       datatype: anat
-      space: [MNI152NLin2009cAsym, False]
     wildcards: [subject, session, acquisition]
+
 pybids_inputs_afids:
   afids:
     filters:
       suffix: afids
       extension: .fcsv
-      space: [MNI152NLin2009cAsym, T1w, False]
       desc: [groundtruth, False]
       datatype: [anat, false]
     wildcards:
@@ -83,8 +82,8 @@ parse_args:
   --validation_afids_dir:
     help: 'Path to a BIDS dataset with AFIDs placements corresponding to validation_bids_dir'
   --frequency:
-    help: 'Augmentation frequency in voxels.'
-    default: 1000
+    help: 'Sampling frequency in voxels.'
+    default: 300
   --angle_stdev:
     help: 'Standard deviation of rotation angles applied in augmentation.'
     default: 30

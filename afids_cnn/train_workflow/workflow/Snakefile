@@ -161,25 +161,25 @@ rule gen_prob:
         "c3d {input.sphere} -sdt -o {output.prob}"
 
 
-rule gen_norm:
-    input:
-        prob=rules.gen_prob.output.prob,
-    output:
-        norm=bids(
-            root=str(Path(config["output_dir"]) / "c3d"),
-            suffix="afid-{afid}_prob_norm_-{k}.nii.gz",
-            **inputs_raw["T1w"].wildcards
-        ),
-    container:
-        config["containers"]["c3d"]
-    threads: 8
-    resources:
-        mem_mb=32000,
-        time=60,
-    group: 
-        "pre-train"
-    shell:
-        "c3d {input.prob} -scale {k} -exp -o {output.norm}"
+# rule gen_norm:
+#     input:
+#         prob=rules.gen_prob.output.prob,
+#     output:
+#         norm=bids(
+#             root=str(Path(config["output_dir"]) / "c3d"),
+#             suffix="afid-{afid}_prob_norm_-{k}.nii.gz",
+#             **inputs_raw["T1w"].wildcards
+#         ),
+#     container:
+#         config["containers"]["c3d"]
+#     threads: 8
+#     resources:
+#         mem_mb=32000,
+#         time=60,
+#     group: 
+#         "pre-train"
+#     shell:
+#         "c3d {input.prob} -scale {k} -exp -o {output.norm}"
 
 
 rule gen_mask:
