@@ -108,10 +108,10 @@ rule extract_afid:
             afid="{afid}",
             **inputs_raw["T1w"].wildcards
         ),
-    threads: 8
+    threads: 1
     resources:
-        mem_mb=32000,
-        time=60,
+        mem_mb=500,
+        time=5,
     group: 
         "pre-train"
     script:
@@ -130,10 +130,10 @@ rule gen_sphere:
         ),
     container:
         config["containers"]["c3d"]
-    threads: 8
+    threads: 2
     resources:
-        mem_mb=32000,
-        time=60,
+        mem_mb=4000,
+        time=10,
     group: 
         "pre-train"
     shell:
@@ -151,10 +151,10 @@ rule gen_prob:
         ),
     container:
         config["containers"]["c3d"]
-    threads: 8
+    threads: 2
     resources:
-        mem_mb=32000,
-        time=60,
+        mem_mb=8000,
+        time=10,
     group: 
         "pre-train"
     shell:
@@ -193,10 +193,10 @@ rule gen_mask:
         ),
     container:
         config["containers"]["c3d"]
-    threads: 8
+    threads: 2
     resources:
-        mem_mb=32000,
-        time=60,
+        mem_mb=8000,
+        time=10,
     group: 
         "pre-train"
     shell:
@@ -312,7 +312,7 @@ rule train_model:
     resources:
         mem_mb=64000,
         time=720,
-        gpu=1,
+        gpus=1,
     group:
         "train"
     shell:

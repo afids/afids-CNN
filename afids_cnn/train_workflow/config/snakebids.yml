@@ -120,4 +120,4 @@ parse_args:
 num_channels: 2
 
 containers:
-  c3d: docker://khanlab/neuroglia-core:v1.5
+  c3d: /project/6050199/akhanf/singularity/bids-apps/itksnap_v3.8.2.sif
