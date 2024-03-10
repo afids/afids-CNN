@@ -22,13 +22,6 @@ from afids_cnn.utils import afids_to_fcsv
 
 logger = logging.getLogger(__name__)
 
-MNI_FCSV = (
-    Path(__file__).parent / "resources" / "tpl-MNI152NLin2009cAsym_res-01_T1w.fcsv"
-)
-MNI_IMG = (
-    Path(__file__).parent / "resources" / "tpl-MNI152NLin2009cAsym_res-256_T1w.nii.gz"
-)
-
 
 def load_fcsv(fcsv_path: PathLike[str] | str) -> pd.DataFrame:
     return pd.read_csv(fcsv_path, sep=",", header=2)
@@ -131,9 +124,10 @@ def apply_model(
     fid_label: int,
     model: keras.model,
     radius: int,
+    prior: PathLike[str] | str,
 ) -> NDArray:
-    mni_fid_world = get_fid(load_fcsv(MNI_FCSV), fid_label)
-    mni_img = nib.nifti1.load(MNI_IMG)
+    mni_fid_world = get_fid(load_fcsv(prior), fid_label)
+    mni_img = img
     mni_fid_resampled = fid_world2voxel(
         mni_fid_world,
         mni_img.affine,
@@ -173,6 +167,7 @@ def apply_model(
 def apply_all(
     model_path: PathLike[str] | str,
     img: nib.nifti1.Nifti1Image | nib.nifti1.Nifti1Pair,
+    prior: PathLike[str] | str,
 ) -> dict[int, NDArray]:
     with tarfile.open(model_path, "r:gz") as tar_file:
         config_file = extract_config(tar_file)
@@ -188,6 +183,7 @@ def apply_all(
                 afid_label,
                 model,
                 radius,
+                prior,
             )
 
     return afid_dict
@@ -238,6 +234,7 @@ def gen_parser() -> ArgumentParser:
     parser.add_argument("img", help="The image for which to produce an FCSV.")
     parser.add_argument("model", help="The afids-CNN model to apply.")
     parser.add_argument("fcsv_path", help="The path to write the output FCSV.")
+    parser.add_argument("sub_prior", help="The coordinates to define model prediction space")
     return parser
 
 
@@ -245,7 +242,7 @@ def main():
     args = gen_parser().parse_args()
     img = nib.nifti1.load(args.img)
 
-    predictions = apply_all(args.model, img)
+    predictions = apply_all(args.model, img,args.sub_prior)
     afids_to_fcsv(predictions, args.fcsv_path)
 
 

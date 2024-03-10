@@ -5,7 +5,6 @@ from snakebids import bids, generate_inputs, get_wildcard_constraints
 
 configfile: workflow.source_path("../config/snakebids.yml")
 
-
 # Get input wildcards
 inputs = generate_inputs(
     bids_dir=config["bids_dir"],
@@ -17,22 +16,35 @@ inputs = generate_inputs(
     exclude_participant_label=config.get("exclude_participant_label", None),
 )
 
-
 # this adds constraints to the bids naming
 wildcard_constraints:
     **get_wildcard_constraints(config["pybids_inputs"]),
 
 
 # ---- end snakebids boilerplate ------------------------------------------------
-
+#bids(
+#           root=str(Path(config["bids_dir"])),
+#            datatype="anat",
+#            suffix="T1w.nii.gz",
+#            **inputs["T1w"].wildcards
+#            ),
 
 rule gen_fcsv:
     input:
         t1w=inputs["T1w"].path,
         model=config["model"],
+        prior=bids(
+            root=str(Path(config["output_dir"]) / "greedy"),
+            datatype="anat",
+            space="native",
+            desc="MNI",
+            suffix="afids.fcsv",
+            **inputs["T1w"].wildcards
+        ),
     output:
         fcsv=bids(
             root=str(Path(config["output_dir"]) / "afids-cnn"),
+            desc="afidscnn",
             suffix="afids.fcsv",
             **inputs["T1w"].wildcards
         ),
@@ -43,7 +55,7 @@ rule gen_fcsv:
             **inputs["T1w"].wildcards
         ),
     shell:
-        'auto_afids_cnn_apply {input.t1w} {input.model} {output.fcsv}'
+        'auto_afids_cnn_apply {input.t1w} {input.model} {output.fcsv} {input.prior}'
 
 
 rule all:

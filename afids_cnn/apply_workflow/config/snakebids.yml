@@ -22,9 +22,13 @@ pybids_inputs:
     filters:
       suffix: T1w
       extension: .nii.gz
-      #      datatype: anat
-      space: MNI152NLin2009cAsym
-    wildcards: [subject, session, acquisition]
+      datatype: anat
+    wildcards:
+    - subject
+    - session
+    - acquisition
+    - reconstruction
+    - run
 # this configures the options to save the BIDSLayout
 # by default, database is not saved (uncomment to save)
 # NOTE: pybids_db_dir must be an absolute path
