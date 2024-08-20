@@ -22,13 +22,6 @@ from afids_cnn.utils import afids_to_fcsv
 
 logger = logging.getLogger(__name__)
 
-MNI_FCSV = (
-    Path(__file__).parent / "resources" / "tpl-MNI152NLin2009cAsym_res-01_T1w.fcsv"
-)
-MNI_IMG = (
-    Path(__file__).parent / "resources" / "tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz"
-)
-
 
 def load_fcsv(fcsv_path: PathLike[str] | str) -> pd.DataFrame:
     return pd.read_csv(fcsv_path, sep=",", header=2)
@@ -53,40 +46,22 @@ def get_fid(fcsv_df: pd.DataFrame, fid_label: int) -> NDArray:
 
 def fid_voxel2world(fid_voxel: NDArray, nii_affine: NDArray) -> NDArray:
     """Transform fiducials in voxel coordinates to world coordinates."""
-    # Translation
-    fid_world = fid_voxel.T + nii_affine[:3, 3:4]
-    # Rotation
-    fid_world = np.diag(np.dot(fid_world, nii_affine[:3, :3]))
-
+    translation = nii_affine[:3, 3]
+    rotation = nii_affine[:3, :3]
+    fid_world = rotation.dot(fid_voxel)+translation
     return fid_world.astype(float)
-
 
 def fid_world2voxel(
     fid_world: NDArray,
     nii_affine: NDArray,
-    resample_size: int = 1,
-    padding: int | None = None,
 ) -> NDArray:
-    """Transform fiducials in world coordinates to voxel coordinates.
-
-    Optionally, resample to match resampled image
-    """
-    # Translation
-    fid_voxel = fid_world.T - nii_affine[:3, 3:4]
-    # Rotation
-    fid_voxel = np.dot(fid_voxel, np.linalg.inv(nii_affine[:3, :3]))
-
-    # Round to nearest voxel
-    fid_voxel = np.rint(np.diag(fid_voxel) * resample_size)
-
-    if padding:
-        fid_voxel = np.pad(fid_voxel, padding, mode="constant")
-
+    """Transform fiducials in world coordinates to voxel coordinates."""
+    inv_affine =  np.linalg.inv(nii_affine)
+    translation = inv_affine[:3, 3]
+    rotation = inv_affine[:3, :3]
+    fid_voxel = rotation.dot(fid_world) + translation
+    fid_voxel = np.rint(fid_voxel)
     return fid_voxel.astype(int)
-
-
-def min_max_normalize(img: NDArray) -> NDArray:
-    return (img - img.min()) / (img.max() - img.min())
 
 
 def gen_patch_slices(centre: NDArray, radius: int) -> tuple[slice, slice, slice]:
@@ -116,18 +91,19 @@ def process_distances(
     radius: int,
 ) -> NDArray:
     dim = (2 * radius) + 1
+    print(f'min distance: {distances.min()}')
     arr_dis = np.reshape(distances[0], (dim, dim, dim))
     new_pred = np.full((img.shape), 100, dtype=float)
     slices = gen_patch_slices(mni_fid, radius)
     new_pred[slices[0], slices[1], slices[2]] = arr_dis
     transformed = np.exp(-0.5 * new_pred)
-    thresh = np.percentile(transformed, 99.999)
+    thresh = np.percentile(transformed, 99)
     thresholded = transformed
     thresholded[thresholded < thresh] = 0
-    thresholded = (thresholded * 1000).astype(int)
+    thresholded = (thresholded * 1000000).astype(int)
     new = skimage.measure.regionprops(thresholded)
     if not new:
-        logger.warning("No centroid found for this afid. Results will be suspect.")
+        logger.warning("No centroid found for this afid. Results may be suspect.")
         return np.array(
             np.unravel_index(
                 np.argmax(transformed, axis=None),
@@ -148,34 +124,50 @@ def apply_model(
     fid_label: int,
     model: keras.model,
     radius: int,
+    prior: PathLike[str] | str,
 ) -> NDArray:
-    mni_fid_world = get_fid(load_fcsv(MNI_FCSV), fid_label)
-    mni_img = nib.nifti1.load(MNI_IMG)
+    mni_fid_world = get_fid(load_fcsv(prior), fid_label)
+    mni_img = img
     mni_fid_resampled = fid_world2voxel(
         mni_fid_world,
         mni_img.affine,
-        resample_size=1,
-        padding=0,
     )
-    normalized = min_max_normalize(img.get_fdata())
+    print('itr #1')
+    img_data = img.get_fdata()
     distances = predict_distances(
         radius,
         model,
         mni_fid_resampled,
-        normalized,
+        img_data,
     )
     fid_resampled = process_distances(
         distances,
-        normalized,
+        img_data,
         mni_fid_resampled,
         radius,
     )
-    return fid_voxel2world(fid_resampled, img.affine)
+    #do it again to improve prediction
+    print(f'itr #2')
+    fid_pred = np.rint(fid_resampled).astype(int)
+    distances2 = predict_distances(
+        radius,
+        model,
+        fid_pred,
+        img_data,
+    )
+    fid_resampled2 = process_distances(
+        distances2,
+        img_data,
+        fid_pred,
+        radius,
+    )
+    return fid_voxel2world(fid_resampled2, img.affine)
 
 
 def apply_all(
     model_path: PathLike[str] | str,
     img: nib.nifti1.Nifti1Image | nib.nifti1.Nifti1Pair,
+    prior: PathLike[str] | str,
 ) -> dict[int, NDArray]:
     with tarfile.open(model_path, "r:gz") as tar_file:
         config_file = extract_config(tar_file)
@@ -191,6 +183,7 @@ def apply_all(
                 afid_label,
                 model,
                 radius,
+                prior,
             )
 
     return afid_dict
@@ -241,6 +234,7 @@ def gen_parser() -> ArgumentParser:
     parser.add_argument("img", help="The image for which to produce an FCSV.")
     parser.add_argument("model", help="The afids-CNN model to apply.")
     parser.add_argument("fcsv_path", help="The path to write the output FCSV.")
+    parser.add_argument("sub_prior", help="The coordinates to define model prediction space")
     return parser
 
 
@@ -248,7 +242,7 @@ def main():
     args = gen_parser().parse_args()
     img = nib.nifti1.load(args.img)
 
-    predictions = apply_all(args.model, img)
+    predictions = apply_all(args.model, img,args.sub_prior)
     afids_to_fcsv(predictions, args.fcsv_path)
 
 

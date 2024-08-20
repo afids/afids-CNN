@@ -8,9 +8,9 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 from tensorflow import keras
+from keras.layers import BatchNormalization, LeakyReLU
 
 from afids_cnn.generator import customImageDataGenerator
-
 
 def gen_training_array(
     num_channels: int,
@@ -42,43 +42,53 @@ def create_generator(
 
 
 def gen_conv3d_layer(
-    filters: int,
+    filters: int, 
     kernel_size: tuple[int, int, int] = (3, 3, 3),
-) -> keras.layers.Conv3D:
-    return keras.layers.Conv3D(filters, kernel_size, padding="same", activation="relu")
-
+) -> keras.layers.Layer:
+    return keras.Sequential([
+        keras.layers.Conv3D(filters, kernel_size, padding="same", kernel_initializer="he_normal"),
+        BatchNormalization(),
+        LeakyReLU(alpha=0.1)
+    ])
 
 def gen_max_pooling_layer() -> keras.layers.MaxPooling3D:
     return keras.layers.MaxPooling3D((2, 2, 2))
 
 
 def gen_transpose_layer(filters: int) -> keras.layers.Conv3DTranspose:
-    return keras.layers.Conv3DTranspose(
-        filters,
-        kernel_size=2,
-        strides=2,
-        padding="same",
+    return keras.Sequential([
+        keras.layers.Conv3DTranspose(filters, kernel_size=2, strides=2, padding="same", kernel_initializer="he_normal"),
+        BatchNormalization(),
+        LeakyReLU(alpha=0.1)
+    ])
+
+def gen_dropout_layer() -> keras.layers.Dropout:
+    return keras.layers.Dropout(
+        rate = 0.2, 
+        noise_shape=None, 
+        seed=None,
     )
 
 
 def gen_std_block(filters: int, input_):
     x = gen_conv3d_layer(filters)(input_)
-    out_layer = gen_conv3d_layer(filters)(x)
+    x = gen_conv3d_layer(filters)(x)
+    out_layer = gen_dropout_layer()(x)
     return out_layer, gen_max_pooling_layer()(out_layer)
 
 
 def gen_opposite_block(filters: int, input_, out_layer):
     x = input_
-    for _ in range(3):
+    for _ in range(2):
         x = gen_conv3d_layer(filters)(x)
+    x = gen_dropout_layer()(x)
     next_filters = filters // 2
     x = gen_transpose_layer(next_filters)(x)
-    x = gen_conv3d_layer(next_filters)(x)
     return keras.layers.Concatenate(axis=4)([out_layer, x])
 
 
 def gen_model() -> keras.Model:
-    input_layer = keras.layers.Input((None, None, None, 1))
+    input_layer = keras.layers.Input((63, 63, 63, 1))
     x = keras.layers.ZeroPadding3D(padding=((1, 0), (1, 0), (1, 0)))(input_layer)
 
     out_layer_1, x = gen_std_block(16, x)  # block 1
@@ -90,7 +100,6 @@ def gen_model() -> keras.Model:
     x = gen_conv3d_layer(256)(x)
     x = gen_conv3d_layer(256)(x)
     x = keras.layers.Conv3DTranspose(filters=128, kernel_size=2, strides=(2, 2, 2))(x)
-    x = gen_conv3d_layer(128, (2, 2, 2))(x)
     x = keras.layers.Concatenate(axis=4)([out_layer_4, x])
 
     x = gen_opposite_block(128, x, out_layer_3)  # block 5 (opposite 4)
@@ -98,8 +107,9 @@ def gen_model() -> keras.Model:
     x = gen_opposite_block(32, x, out_layer_1)  # block 7 (opposite 2)
 
     # block 8 (opposite 1)
-    for _ in range(3):
+    for _ in range(2):
         x = gen_conv3d_layer(16)(x)
+    x = gen_dropout_layer()(x)
 
     # output layer
     x = keras.layers.Cropping3D(cropping=((1, 0), (1, 0), (1, 0)), data_format=None)(x)
@@ -189,7 +199,7 @@ def main():
     )
 
     callbacks = (
-        [keras.callbacks.EarlyStopping(monitor="val_loss", patience=100)]
+        [keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0.05, patience=5)]
         if args.do_early_stopping
         else None
     )

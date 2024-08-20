@@ -108,8 +108,14 @@ rule extract_afid:
             afid="{afid}",
             **inputs_raw["T1w"].wildcards
         ),
+    threads: 1
+    resources:
+        mem_mb=500,
+        time=5,
+    group: 
+        "pre-train"
     script:
-        './scripts/extract_afids.py'
+        "./scripts/extract_afids.py"
 
 
 rule gen_sphere:
@@ -124,13 +130,19 @@ rule gen_sphere:
         ),
     container:
         config["containers"]["c3d"]
+    threads: 2
+    resources:
+        mem_mb=4000,
+        time=10,
+    group: 
+        "pre-train"
     shell:
         "c3d {input.t1w} -scale 0 -landmarks-to-spheres {input.txt} 1 -o {output.sphere}"
 
 
 rule gen_prob:
     input:
-        sphere=rules.gen_sphere.output.sphere,
+        sphere=rules.gen_sphere.output.sphere
     output:
         prob=bids(
             root=str(Path(config["output_dir"]) / "c3d"),
@@ -139,23 +151,35 @@ rule gen_prob:
         ),
     container:
         config["containers"]["c3d"]
+    threads: 2
+    resources:
+        mem_mb=8000,
+        time=10,
+    group: 
+        "pre-train"
     shell:
         "c3d {input.sphere} -sdt -o {output.prob}"
 
 
-rule gen_norm:
-    input:
-        prob=rules.gen_prob.output.prob,
-    output:
-        norm=bids(
-            root=str(Path(config["output_dir"]) / "c3d"),
-            suffix="afid-{afid}_prob_norm_-{k}.nii.gz",
-            **inputs_raw["T1w"].wildcards
-        ),
-    container:
-        config["containers"]["c3d"]
-    shell:
-        "c3d {input.prob} -scale {k} -exp -o {output.norm}"
+# rule gen_norm:
+#     input:
+#         prob=rules.gen_prob.output.prob,
+#     output:
+#         norm=bids(
+#             root=str(Path(config["output_dir"]) / "c3d"),
+#             suffix="afid-{afid}_prob_norm_-{k}.nii.gz",
+#             **inputs_raw["T1w"].wildcards
+#         ),
+#     container:
+#         config["containers"]["c3d"]
+#     threads: 8
+#     resources:
+#         mem_mb=32000,
+#         time=60,
+#     group: 
+#         "pre-train"
+#     shell:
+#         "c3d {input.prob} -scale {k} -exp -o {output.norm}"
 
 
 rule gen_mask:
@@ -169,6 +193,12 @@ rule gen_mask:
         ),
     container:
         config["containers"]["c3d"]
+    threads: 2
+    resources:
+        mem_mb=8000,
+        time=10,
+    group: 
+        "pre-train"
     shell:
         "c3d {input.prob} -threshold 0 10 1 0 -o {output.bin}"
 
@@ -191,6 +221,12 @@ rule gen_patches:
         radius_arg=lambda wildcards: "x".join([wildcards["radius"] for _ in range(3)]),
     container:
         config["containers"]["c3d"]
+    threads: 8
+    resources:
+        mem_mb=32000,
+        time=60,
+    group: 
+        "pre-train"
     shell:
         "c3d {input.t1w} {input.prob} {input.mask} "
         "-xpa {wildcards.num_augment} {wildcards.angle_stdev} "
@@ -210,6 +246,12 @@ rule cat_patches:
                 suffix="afid-{afid}_allpatches.dat",
             )
         ),
+    threads: 8
+    resources:
+        mem_mb=32000,
+        time=60,
+    group: 
+        "pre-train"
     shell:
         "cat {input.patch} > {output.combined_patch}"
 
@@ -227,6 +269,12 @@ rule cat_patches_validation:
                 suffix="afid-{afid}_allvalidationpatches.dat",
             )
         ),
+    threads: 8
+    resources:
+        mem_mb=32000,
+        time=60,
+    group: 
+        "pre-train"
     shell:
         "cat {input.patch} > {output.combined_patch}"
 
@@ -260,6 +308,13 @@ rule train_model:
         validation_steps=config["validation_steps"],
         validation_arg="--validation_patches_path" if inputs_raw_validation else "",
         do_early_stopping="--do_early_stopping" if config["do_early_stopping"] else "",
+    threads: 16
+    resources:
+        mem_mb=64000,
+        time=720,
+        gpus=1,
+    group:
+        "train"
     shell:
         "auto_afids_cnn_train {params.num_channels} {wildcards.radius} "
         "{input.combined_patch} {output.model} --loss_out_path {output.history} "
