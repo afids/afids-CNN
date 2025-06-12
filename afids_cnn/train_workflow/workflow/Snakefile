@@ -12,6 +12,7 @@ inputs_raw = generate_inputs(
     pybids_inputs=config["pybids_inputs"],
     pybids_database_dir=config.get("pybids_db_dir"),
     pybids_reset_database=config.get("pybids_db_reset"),
+    pybids_config=['bids', 'derivatives'],  # Need to allow desc etc.
     derivatives=config.get("derivatives", None),
     participant_label=config.get("participant_label", None),
     exclude_participant_label=config.get("exclude_participant_label", None),
@@ -39,6 +40,7 @@ inputs_raw_validation = (
         pybids_inputs=config["pybids_inputs"],
         pybids_database_dir=config.get("pybids_db_dir"),
         pybids_reset_database=config.get("pybids_db_reset"),
+        pybids_config=['bids', 'derivatives'],  # Need to allow desc etc.
         derivatives=config.get("derivatives", None),
     )
     if config["validation_bids_dir"]
@@ -329,7 +331,11 @@ rule all:
     input:
         models=expand(
             rules.train_model.output.model,
-            afid=[f"{afid:02}" for afid in range(1, 33)],
+            afid=[
+                f"{afid:02}" for afid in (
+                    list(map(int, config["afids_num"])) if config["afids_num"] else range(1, 33)
+                )
+            ],
             num_augment=config["num_augment"],
             angle_stdev=config["angle_stdev"],
             radius=config["radius"],

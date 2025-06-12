@@ -22,7 +22,10 @@ pybids_inputs:
     filters:
       suffix: T1w
       extension: .nii.gz
-      datatype: anat
+      desc: [zscore, False]
+      datatype: [anat,False]
+      invalid_filters: 'allow'
+      res: [100, False]
     wildcards: [subject, session, acquisition]
 
 pybids_inputs_afids:
@@ -77,13 +80,16 @@ parse_args:
   --afids_dir:
     help: 'Path to a BIDS dataset with AFIDs placements corresponding to bids_dir.'
     required: True
+  --afids_num:
+    help: 'AFID(s) to train. If not specified, will train on all AFIDs.'
+    nargs: '*'
   --validation_bids_dir:
     help: 'Path to a validation BIDS dataset.'
   --validation_afids_dir:
-    help: 'Path to a BIDS dataset with AFIDs placements corresponding to validation_bids_dir'
+    help: 'Path to a BIDS dataset with AFIDs placements corresponding to validation_bids_dir.'
   --frequency:
-    help: 'Sampling frequency in voxels.'
-    default: 300
+    help: 'Augmentation frequency in voxels.'
+    default: 1000
   --angle_stdev:
     help: 'Standard deviation of rotation angles applied in augmentation.'
     default: 30
@@ -120,4 +126,4 @@ parse_args:
 num_channels: 2
 
 containers:
-  c3d: /project/6050199/akhanf/singularity/bids-apps/itksnap_v3.8.2.sif
+  c3d: docker://khanlab/neuroglia-core:v1.5
